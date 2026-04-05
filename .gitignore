@@ -1,0 +1,33 @@
+# --- SUMO / TraCI / Simulation Artifacts ---
+*.log
+*.pb
+*.dump
+*.bak
+*~
+# Ignore dynamically generated traffic files
+# (Keep your .net.xml and base .rou.xml manually)
+*.trips.xml
+*.rou.alt.xml
+
+# --- Python & Virtual Environments ---
+__pycache__/
+*.py[cod]
+*$py.class
+.venv/
+venv/
+ENV/
+build/
+dist/
+
+# --- RL Training & Models ---
+*.zip
+*.pkl
+/logs/
+/tensorboard_logs/
+/results/
+
+# --- IDEs & OS Junk ---
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
