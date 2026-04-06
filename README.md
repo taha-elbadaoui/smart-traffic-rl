@@ -1,23 +1,90 @@
-# Traffic Flow Optimization via Reinforcement Learning
+# 🚦 Traffic Flow Optimization via Reinforcement Learning
 
-## Project Overview
-This project designs a Reinforcement Learning (RL) system to improve intersection throughput by dynamically selecting traffic signal phases instead of using fixed-time cycles. The system progresses from a single-agent controller to a collaborative multi-agent system.
+**Institution:** INPT Rabat (ASEDS)  
+**Team:** Taha & Walid  
+**Supervisor:** Prof. Zineb El Akkaoui  
+**Timeline:** 3 Months (Part-Time)
 
-## Tech Stack
-* **Simulator:** SUMO (Simulation of Urban MObility)
-* **Interface:** TraCI (Python API)
-* **RL Framework:** Stable-Baselines3 / Ray RLlib
-* **Environment:** SUMO-RL (Gym-compatible)
+---
 
-## Features
-* **Phase-Based Control:** The agent selects optimal green/yellow phases for North-South and East-West corridors.
-* **Multi-Objective Rewards:** Optimization based on mobility (waiting time), environment ($CO_{2}$), and safety.
-* **State Space:** Observations include vehicle counts, queue lengths, waiting times, and lane occupancy.
+## 📝 Project Overview
 
-## Implementation Roadmap
-- [ ] **Phase 1:** 4-way intersection setup in SUMO
-- [ ] **Phase 2:** Traffic generation using `randomTrips` or manual `.rou.xml`
-- [ ] **Phase 3:** Integration with SUMO-RL wrapper
-- [ ] **Phase 4:** Training baseline agents (PPO/DQN)
-- [ ] **Phase 5:** Comparison against fixed-time signal baseline
-- [ ] **Phase 6:** Scaling to Multi-Agent RL (MARL) with RLlib
+This project designs a **Multi-Objective Reinforcement Learning (RL)** system to optimize traffic signal control at intersections.
+
+The goal is to:
+- Maximize traffic throughput  
+- Minimize waiting time  
+- Reduce environmental impact (CO₂ emissions & fuel consumption)
+
+A **single-agent architecture** is used to deeply optimize:
+- State-space representation  
+- Reward shaping  
+
+This avoids the complexity and overhead of multi-agent coordination.
+
+---
+
+## 🛠 Tech Stack
+
+- **Simulator:** SUMO (Simulation of Urban MObility)  
+- **Performance Interface:** `libsumo` (high-speed, headless execution)  
+- **Debugging Interface:** TraCI (Python API with GUI support)  
+- **RL Framework:** Stable-Baselines3 (PPO, DQN)  
+- **Environment:** Gymnasium wrapper via `sumo-rl`  
+
+---
+
+## 🚀 Key Features
+
+- ⚡ **High-Speed Training**  
+  Uses `libsumo` to eliminate TCP overhead and accelerate training  
+
+- 🚗 **Pressure-Based Rewards**  
+  Optimizes traffic flow using lane pressure (incoming vs outgoing vehicles)  
+
+- 🌱 **Environmental Awareness**  
+  Tracks CO₂ emissions and fuel consumption in real time  
+
+- ⚖️ **Multi-Objective Optimization**  
+  Penalizes harsh braking and inefficient flow patterns  
+
+---
+
+## 📅 Implementation Roadmap
+
+### Phase 1 — "Hello World" Pipeline (Month 1)
+- [ ] Build a minimal 1×1 intersection (NetEdit)  
+- [ ] Implement custom `gymnasium.Env` with `libsumo`  
+- [ ] Train baseline DQN agent (queue-based control)  
+
+---
+
+### Phase 2 — Scaling & Realism (Month 2)
+- [ ] Expand to 4-way intersection with dedicated lanes  
+- [ ] Simulate rush-hour traffic using `randomTrips`  
+- [ ] Switch to PPO for improved stability  
+
+---
+
+### Phase 3 — Multi-Objective Optimization (Month 3)
+- [ ] Integrate CO₂-based reward signals  
+- [ ] Benchmark vs fixed-time & actuated signals  
+- [ ] Visualize results (wait time vs emissions)  
+
+---
+
+## 📊 Expected Outcomes
+
+- Reduced average waiting time  
+- Improved traffic throughput  
+- Lower emissions compared to traditional systems  
+
+---
+
+## 📌 Future Work
+
+- Multi-agent traffic networks  
+- Real-world data integration  
+- Deployment on smart city infrastructure  
+
+---
