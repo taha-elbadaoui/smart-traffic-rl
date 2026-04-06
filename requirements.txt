@@ -1,0 +1,6 @@
+gymnasium==0.29.1
+stable-baselines3[extra]
+sumo-rl
+libsumo
+matplotlib
+pandas
