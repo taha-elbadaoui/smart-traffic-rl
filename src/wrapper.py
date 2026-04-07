@@ -21,9 +21,9 @@ class SingleIntersectionEnv(gym.Env):
 
     def _get_state(self):
         """Helper function to read and normalize queues."""
-        # Note: We are trusting Taha to name the edges exactly like this in NetEdit
-        q_n = traci.lane.getLastStepHaltingNumber("edge_N")
-        q_e = traci.lane.getLastStepHaltingNumber("edge_E")
+        # Added '_0' because TraCI needs the Lane ID, not the Edge ID
+        q_n = traci.lane.getLastStepHaltingNumber("edge_N_0")
+        q_e = traci.lane.getLastStepHaltingNumber("edge_E_0")
         
         # Normalize between 0 and 1
         norm_q_n = min(q_n / self.max_cars, 1.0)
