@@ -17,7 +17,7 @@ print("Starting DQN Training (Headless Mode)...")
 model = DQN("MlpPolicy", env, verbose=1, learning_rate=1e-3, buffer_size=50000, exploration_fraction=0.5)
 
 # Train for 20,000 steps to start
-model.learn(total_timesteps=20000, progress_bar=True)
+model.learn(total_timesteps=200000, progress_bar=True)
 
 # Save the trained brain
 model_path = os.path.join(MODEL_DIR, "dqn_1x1_baseline")
