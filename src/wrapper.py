@@ -30,7 +30,7 @@ class SingleIntersectionEnv(gym.Env):
         return np.array([norm_q_n, norm_q_e], dtype=np.float32), q_n, q_e
 
     def step(self, action):
-        target_phase = action * 2 
+        target_phase = int(action) * 2 
         self.traci.trafficlight.setPhase("TL_main", target_phase)
         
         for _ in range(self.green_time):
