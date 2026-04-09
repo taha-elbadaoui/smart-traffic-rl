@@ -69,8 +69,6 @@ cd src
 python evaluate.py
 ```
 
-> **Note:** Press the **Play** button in the SUMO interface to start the simulation.
-
 ---
 
 ## 📊 Understanding Training Logs
