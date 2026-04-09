@@ -2,7 +2,6 @@
 
 > **Institution:** INPT Rabat (ASEDS)
 > **Team:** Taha El Badaoui & Walid Hazzam
-> **Supervisor:** Prof. Zineb El Akkaoui
 
 ---
 
