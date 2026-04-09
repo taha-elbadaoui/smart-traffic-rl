@@ -83,7 +83,6 @@ Stable-Baselines3 outputs a metrics table during training. Key fields:
 | `ep_rew_mean` | Average penalty per episode (negative sum of waiting cars) | → 0 over time |
 | `ep_len_mean` | Avg. steps until all scheduled cars clear the intersection | — |
 | `exploration_rate` | Epsilon-greedy decay (starts ~0.70, decays to 0.05) | Decreasing |
-| `fps` | Simulation speed — should stay 500–1000+ FPS with `libsumo` | High |
 | `loss` | Q-value prediction error; fluctuates, general stabilization is healthy | Stabilizing |
 
 ---
