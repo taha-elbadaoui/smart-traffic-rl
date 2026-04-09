@@ -1,9 +1,8 @@
 # 🚦 Traffic Flow Optimization via Reinforcement Learning
 
 > **Institution:** INPT Rabat (ASEDS)
-> **Team:** Taha El Badaoui & Walid
+> **Team:** Taha El Badaoui & Walid Hazzam
 > **Supervisor:** Prof. Zineb El Akkaoui
-> **Timeline:** 3 Months (Part-Time)
 
 ---
 
