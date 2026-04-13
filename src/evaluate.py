@@ -15,7 +15,7 @@ parser.add_argument("--mode", type=str, choices=["train", "random"], default="tr
 args = parser.parse_args()
 
 # 2. Détermination du modèle à charger
-if args.mode == "normal":
+if args.mode == "train":
     model_name = "dqn_1x1_baseline"
     print("🚀 Chargement du modèle ENTRAÎNÉ...")
 else:
