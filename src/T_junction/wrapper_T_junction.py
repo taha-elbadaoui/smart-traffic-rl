@@ -3,13 +3,15 @@ from gymnasium import spaces
 import numpy as np
 import traci
 import uuid
+import os
+import time
+import random
 
 class TJunctionEnv(gym.Env):
     def __init__(self, sumocfg_file, use_gui=False):
         super(TJunctionEnv, self).__init__()
-        self.sumocfg_file = sumocfg_file
+        self.sumocfg_file = os.path.abspath(sumocfg_file)
         self.use_gui = use_gui
-        
         self.label = f"env_{uuid.uuid4().hex}"
         self.conn = None
         
@@ -40,9 +42,7 @@ class TJunctionEnv(gym.Env):
         throughput = 0
         
         if current_phase != target_phase:
-            yellow_phase = current_phase + 1
-            self.conn.trafficlight.setPhase(self.ts_id, yellow_phase)
-            
+            self.conn.trafficlight.setPhase(self.ts_id, current_phase + 1)
             for _ in range(self.yellow_time):
                 self.conn.simulationStep()
                 accumulated_reward -= sum(self._get_queue_lengths())
@@ -61,7 +61,6 @@ class TJunctionEnv(gym.Env):
                 throughput += self.conn.simulation.getArrivedNumber()
             
         state, _ = self._get_state()
-        
         reward = float(accumulated_reward + (throughput * 10.0))
         done = self.conn.simulation.getMinExpectedNumber() <= 0
         
@@ -71,18 +70,30 @@ class TJunctionEnv(gym.Env):
         super().reset(seed=seed)
         
         if self.conn is None:
-            binary = "sumo-gui" if self.use_gui else "sumo"
-            traci.start([binary, "-c", self.sumocfg_file, "--no-warnings", "--start", "--no-step-log"], label=self.label)
-            self.conn = traci.getConnection(self.label)
-        else:
-            self.conn.load(["-c", self.sumocfg_file, "--no-warnings", "--start", "--no-step-log"])
+            time.sleep(random.uniform(0.1, 0.6))
         
+        if self.conn is not None:
+            try:
+                self.conn.close()
+            except:
+                pass
+            self.conn = None
+
+        binary = "sumo-gui" if self.use_gui else "sumo"
+        traci.start([
+            binary, "-c", self.sumocfg_file, 
+            "--no-warnings", "--start", "--no-step-log", "--random"
+        ], label=self.label)
+        
+        self.conn = traci.getConnection(self.label)
         state, _ = self._get_state()
         return state, {}
 
     def close(self):
         if self.conn:
             try:
-                self.conn.close()
-            except traci.exceptions.FatalTraCIError:
+                traci.switch(self.label)
+                traci.close()
+            except:
                 pass
+            self.conn = None

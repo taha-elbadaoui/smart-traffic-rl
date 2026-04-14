@@ -11,7 +11,7 @@ CONFIG_PATH = os.path.join(ROOT_DIR, "envs/crossroad/env.sumocfg")
 MODEL_DIR = os.path.join(ROOT_DIR, "models")
 
 parser = argparse.ArgumentParser(description="Évaluation DQN pour l'intersection simple")
-parser.add_argument("--mode", type=str, choices=["final", "random"], default="final")
+parser.add_argument("--mode", type=str, choices=["final", "random", "parallel"], default="parallel")
 args = parser.parse_args()
 
 model_name = f"dqn_crossroad_{args.mode}"
