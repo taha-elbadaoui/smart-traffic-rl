@@ -6,8 +6,9 @@ from stable_baselines3.common.env_checker import check_env
 from wrapper_4x4 import SingleIntersectionEnv 
 
 # Configuration des chemins vers tes fichiers 4x4
-CONFIG_PATH = "../../envs/4x4_intersections/env.sumocfg"
-MODEL_DIR = "../../models"
+# NOUVEAU CODE POUR WALID
+CONFIG_PATH = "envs/4x4_intersections/env.sumocfg"
+MODEL_DIR = "models"
 os.makedirs(MODEL_DIR, exist_ok=True)
 
 parser = argparse.ArgumentParser(description="Entraînement 4x4 pour Walid")
