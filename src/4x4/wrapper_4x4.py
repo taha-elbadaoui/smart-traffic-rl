@@ -1,9 +1,6 @@
 import gymnasium as gym
 from gymnasium import spaces
 import numpy as np
-
-# Walid, l'objectif ici est d'utiliser uniquement 'traci' pour contourner le bug de DLL.
-# On supprime l'import dynamique de libsumo.
 import traci
 
 class SingleIntersectionEnv(gym.Env):
@@ -11,20 +8,10 @@ class SingleIntersectionEnv(gym.Env):
         super(SingleIntersectionEnv, self).__init__()
         self.sumocfg_file = sumocfg_file
         self.use_gui = use_gui
-        
-        # Walid, on assigne traci directement pour tous les modes (avec ou sans GUI)
         self.traci = traci
-        
-        # Walid, l'objectif est d'augmenter la capacité max à 30 
-        # puisqu'il y a maintenant 2 voies par axe pouvant stocker des voitures.
         self.max_cars = 30.0 
         self.green_time = 5  
-        
-        # L'espace d'action reste 2 : 
-        # Action 0 = Phase 0 (Vert N/S), Action 1 = Phase 2 (Vert E/W)
         self.action_space = spaces.Discrete(2)
-        
-        # L'objectif est d'avoir 4 capteurs virtuels (un pour chaque axe principal)
         self.observation_space = spaces.Box(low=0.0, high=1.0, shape=(4,), dtype=np.float32)
 
     def _get_state(self):
@@ -45,7 +32,6 @@ class SingleIntersectionEnv(gym.Env):
     def step(self, action):
         target_phase = int(action) * 2 
         
-        # Walid, l'interprétation ici est cruciale : on cible le nouvel ID du feu, "J4"
         self.traci.trafficlight.setPhase("J4", target_phase)
         
         for _ in range(self.green_time):
@@ -53,7 +39,6 @@ class SingleIntersectionEnv(gym.Env):
             
         state, q_n, q_e, q_s, q_w = self._get_state()
         
-        # L'objectif de la récompense est de punir la congestion totale des 8 voies d'entrée
         reward = -float(q_n + q_e + q_s + q_w)
         done = self.traci.simulation.getMinExpectedNumber() <= 0
         
