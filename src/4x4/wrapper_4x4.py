@@ -2,16 +2,18 @@ import gymnasium as gym
 from gymnasium import spaces
 import numpy as np
 
-# Dynamic import based on GUI needs
-import libsumo as headless_traci
-import traci as gui_traci
+# Walid, l'objectif ici est d'utiliser uniquement 'traci' pour contourner le bug de DLL.
+# On supprime l'import dynamique de libsumo.
+import traci
 
 class SingleIntersectionEnv(gym.Env):
     def __init__(self, sumocfg_file, use_gui=False):
         super(SingleIntersectionEnv, self).__init__()
         self.sumocfg_file = sumocfg_file
         self.use_gui = use_gui
-        self.traci = gui_traci if self.use_gui else headless_traci
+        
+        # Walid, on assigne traci directement pour tous les modes (avec ou sans GUI)
+        self.traci = traci
         
         # Walid, l'objectif est d'augmenter la capacité max à 30 
         # puisqu'il y a maintenant 2 voies par axe pouvant stocker des voitures.
