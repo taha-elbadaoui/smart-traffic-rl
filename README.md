@@ -7,7 +7,7 @@
 
 ## 📝 Project Overview
 
-This project designs a **Multi-Objective Reinforcement Learning (RL)** system to optimize traffic signal control at intersections.
+This project designs a **Multi-Objective Reinforcement Learning (RL)** system to optimize traffic signal control at various intersection types (T-Junctions and Crossroads).
 
 **Goals:**
 - Maximize traffic throughput
@@ -24,7 +24,7 @@ A **single-agent architecture** is used to deeply optimize state-space represent
 |---|---|
 | Simulator | [SUMO](https://eclipse.dev/sumo/) — Simulation of Urban MObility |
 | RL Framework | [Stable-Baselines3](https://stable-baselines3.readthedocs.io/) (DQN → PPO) |
-| Environment | Custom `gymnasium.Env` wrapper |
+| Environment | Custom `gymnasium.Env` wrappers (`TJunctionEnv`, `CrossroadEnv`) |
 | Training Mode | `libsumo` — headless C++ bindings (high-speed) |
 | Evaluation Mode | `traci` — GUI via `sumo-gui` (visual verification) |
 
@@ -32,10 +32,10 @@ A **single-agent architecture** is used to deeply optimize state-space represent
 
 ## 🚀 Key Features
 
-- ⚡ **High-Speed Training** — Bypasses GUI and TCP overhead via C++ bindings (`libsumo`) during the training loop
-- 👁️ **Visual Verification** — Dynamically switches to `traci` post-training for human observation of agent behavior
-- 🚗 **Queue-Based Rewards** — Minimizes the normalized sum of halting vehicles on incoming lanes
-- 🌱 **Environmental Awareness** *(Upcoming)* — Real-time CO₂ and fuel tracking to penalize harsh braking and inefficient flow patterns
+- ⚡ **High-Speed Training** — Bypasses GUI and TCP overhead via C++ bindings (`libsumo`) during the training loop.
+- 👁️ **Visual Verification** — Dynamically switches to `traci` post-training for human observation of agent behavior.
+- 🚗 **Queue-Based Rewards** — Minimizes the normalized sum of halting vehicles on incoming lanes.
+- 🌱 **Environmental Awareness** *(Upcoming)* — Real-time CO₂ and fuel tracking to penalize harsh braking and inefficient flow patterns.
 
 ---
 
@@ -51,22 +51,32 @@ pip install -r requirements.txt
 
 ### 2. Headless Training (Maximum Speed)
 
-Defaults to `libsumo` to prevent GUI overhead during thousands of rapid iterations.
+Training defaults to `libsumo` to prevent GUI overhead. The repository currently supports two intersection environments. 
 
+**For the T-Junction:**
 ```bash
-cd src
-python train.py
+python src/T_junction/train_T_junction.py --mode train
 ```
+*Outputs:* `models/dqn_t_junction_final.zip` (Trained for 200,000 timesteps)
 
-**Output:** Saves trained model to `models/dqn_1x1_baseline.zip`
+**For the Crossroad:**
+```bash
+python src/crossroad/train_crossroad.py --mode train
+```
+*Outputs:* `models/dqn_crossroad_final.zip` (Trained for 300,000 timesteps)
+
+> **Note:** You can also run the scripts with `--mode random` to generate an untrained baseline model for comparison.
 
 ### 3. Visual Evaluation (GUI Mode)
 
-Loads the saved model and opens `sumo-gui` via `traci`.
+To load a saved model and observe its behavior via `sumo-gui`, execute the corresponding evaluation script:
 
 ```bash
-cd src
-python evaluate.py
+# Evaluate T-Junction
+python src/T_junction/evaluate_T_junction.py
+
+# Evaluate Crossroad
+python src/crossroad/evaluate_crossroad.py
 ```
 
 ---
@@ -79,24 +89,24 @@ Stable-Baselines3 outputs a metrics table during training. Key fields:
 |---|---|---|
 | `ep_rew_mean` | Average penalty per episode (negative sum of waiting cars) | → 0 over time |
 | `ep_len_mean` | Avg. steps until all scheduled cars clear the intersection | — |
-| `exploration_rate` | Epsilon-greedy decay (starts ~0.70, decays to 0.05) | Decreasing |
+| `exploration_rate` | Epsilon-greedy decay (starts ~0.50) | Decreasing |
 | `loss` | Q-value prediction error; fluctuates, general stabilization is healthy | Stabilizing |
 
 ---
 
 ## 📅 Implementation Roadmap
 
-### Phase 1 — "Hello World" Pipeline *(Month 1)*
-- [x] Build a minimal 1×1 intersection (NetEdit)
+### Phase 1 — Foundational Environments *(Completed)*
+- [x] Build minimal intersection layouts (T-Junction & Crossroad) in NetEdit
 - [x] Implement custom `gymnasium.Env` with dynamic `libsumo`/`traci` switching
-- [x] Train and evaluate baseline DQN agent (queue-based control)
+- [x] Train and evaluate baseline DQN agents (queue-based control) for both environments
 
-### Phase 2 — Scaling & Realism *(Month 2)*
-- [ ] Expand to 4-way intersection with dedicated lanes
-- [ ] Simulate rush-hour traffic using `randomTrips.py`
+### Phase 2 — Scaling & Realism *(In Progress)*
+- [ ] Simulate rush-hour traffic using `randomTrips.py` for dynamic `.rou.xml` generation
 - [ ] Switch to PPO for improved stability in larger state spaces
+- [ ] Centralize configuration and hyperparameters
 
-### Phase 3 — Multi-Objective Optimization *(Month 3)*
+### Phase 3 — Multi-Objective Optimization
 - [ ] Integrate CO₂-based reward signals
 - [ ] Benchmark vs fixed-time & actuated signals
 - [ ] Visualize results (wait time vs emissions tradeoffs)
