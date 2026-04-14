@@ -1,8 +1,8 @@
 from stable_baselines3 import DQN
-from wrapper import SingleIntersectionEnv
+from wrapper_T_junction import TJunctionEnv
 
 # Initialisation simple sans .learn()
-env = SingleIntersectionEnv("../envs/1x1_minimal/env.sumocfg")
+env = TJunctionEnv("../envs/T_junction/env.sumocfg")
 model = DQN("MlpPolicy", env)
 
 # Sauvegarde immédiate
