@@ -4,8 +4,9 @@ import os
 from stable_baselines3 import DQN
 from wrapper_4x4 import SingleIntersectionEnv
 
-CONFIG_PATH = "../../envs/4x4_intersections/env.sumocfg"
-MODEL_DIR = "../../models/"
+# NOUVEAU CODE POUR WALID
+CONFIG_PATH = "envs/4x4_intersections/env.sumocfg"
+MODEL_DIR = "models"
 
 parser = argparse.ArgumentParser(description="Évaluation 4x4 pour Walid")
 parser.add_argument("--mode", type=str, choices=["train", "random"], default="train")
