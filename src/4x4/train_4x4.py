@@ -2,11 +2,8 @@ import os
 import argparse
 from stable_baselines3 import DQN
 from stable_baselines3.common.env_checker import check_env
-# Walid, attention à bien importer la classe du nouveau wrapper 4x4
 from wrapper_4x4 import SingleIntersectionEnv 
 
-# Configuration des chemins vers tes fichiers 4x4
-# NOUVEAU CODE POUR WALID
 CONFIG_PATH = "envs/4x4_intersections/env.sumocfg"
 MODEL_DIR = "models"
 os.makedirs(MODEL_DIR, exist_ok=True)
@@ -22,19 +19,18 @@ env = SingleIntersectionEnv(CONFIG_PATH, use_gui=False)
 check_env(env)
 
 if args.mode == "train":
-    print("🚀 Walid, lancement de l'entraînement DQN sur 4x4 (300,000 steps)...")
-    # Walid, l'objectif est d'augmenter un peu les steps car l'environnement est plus complexe
+    print("🚀 Lancement de l'entraînement DQN sur 4x4")
     model = DQN("MlpPolicy", env, verbose=1, learning_rate=1e-3, buffer_size=50000, exploration_fraction=0.5)
     model.learn(total_timesteps=300000, progress_bar=True)
     model_name = "dqn_4x4_smart_traffic"
 else:
-    print("🎲 Walid, création d'un modèle aléatoire pour test...")
+    print("🎲 Création d'un modèle aléatoire pour test...")
     model = DQN("MlpPolicy", env, verbose=1)
     model_name = "dqn_4x4_random"
 
 model_path = os.path.join(MODEL_DIR, model_name)
 model.save(model_path)
-print(f"✅ Walid, modèle enregistré : {model_path}")
+print(f"✅ Modèle enregistré : {model_path}")
 
 env.close()
 
