@@ -1,19 +1,21 @@
 import gymnasium as gym
 from gymnasium import spaces
 import numpy as np
-import traci
 import uuid
 import os
 import time
-import random
+
+import traci
+LIBSUMO_AVAILABLE = False
+try:
+    import libsumo
+    LIBSUMO_AVAILABLE = True
+except ImportError:
+    pass
 
 YELLOW_PHASE_MAP = {0: 1, 2: 3}
-BASE_PORT = 8813
 
 class CrossroadEnv(gym.Env):
-    """
-    Gymnasium environment for a 4-way Crossroad traffic signal controller.
-    """
     MAX_EPISODE_STEPS = 3600  
 
     def __init__(self, sumocfg_file, use_gui=False, rank=0):
@@ -21,27 +23,29 @@ class CrossroadEnv(gym.Env):
         self.sumocfg_file = os.path.abspath(sumocfg_file)
         self.use_gui = use_gui
         self.rank = rank
-        self.port = BASE_PORT + rank 
         self.label = f"env_{uuid.uuid4().hex}"
         self.conn = None
 
         self.max_cars = 50.0
-        self.step_length = 25   # Proper green time physics
+        self.step_length = 25   
         self.yellow_time = 3
         self.green_time = self.step_length - self.yellow_time
         
-        # System Guardrails
         self.min_green_time = 15
         self.max_green_time = 60
         self.current_phase_duration = 0
 
         self.action_space = spaces.Discrete(2)
-        # Obs: [queue_N, queue_E, queue_S, queue_W, phase_oh_0, phase_oh_1, phase_duration]
         self.observation_space = spaces.Box(low=0.0, high=1.0, shape=(7,), dtype=np.float32)
 
         self.ts_id = "J4"
         self.edges = ["in_N", "int_E", "in_S", "in_W"]
         self.current_step = 0
+        
+        # Completely isolate the generated XML file name for this specific worker rank
+        self.config_dir = os.path.dirname(self.sumocfg_file)
+        self.worker_route_filename = f"dynamic_worker_{self.rank}.rou.xml"
+        self.route_file = os.path.join(self.config_dir, self.worker_route_filename)
 
     def _get_queue_lengths(self):
         return [self.conn.edge.getLastStepHaltingNumber(e) for e in self.edges]
@@ -55,7 +59,6 @@ class CrossroadEnv(gym.Env):
             current_phase = 0 if current_phase == 1 else 2
         phase_one_hot = [1.0, 0.0] if current_phase == 0 else [0.0, 1.0]
         
-        # Provide time dimension to satisfy Markov property
         norm_duration = [min(1.0, self.current_phase_duration / self.max_green_time)]
 
         state = np.array(norm_queues + phase_one_hot + norm_duration, dtype=np.float32)
@@ -67,7 +70,6 @@ class CrossroadEnv(gym.Env):
 
         base_penalty = -(total_waiting / self.max_cars)
         
-        # Linear starvation penalty
         max_queue = max(queues)
         starvation_penalty = -(max_queue / self.max_cars)
 
@@ -84,12 +86,10 @@ class CrossroadEnv(gym.Env):
             
         guardrail_penalty = 0.0
 
-        # Guardrail 1: Min green time override
         if target_phase != current_phase and self.current_phase_duration < self.min_green_time:
             target_phase = current_phase
             guardrail_penalty -= 5.0  
 
-        # Guardrail 2: Max green time override
         if target_phase == current_phase and self.current_phase_duration >= self.max_green_time:
             target_phase = 2 if current_phase == 0 else 0
             guardrail_penalty -= 10.0 
@@ -99,7 +99,7 @@ class CrossroadEnv(gym.Env):
         switching_penalty = 0.0
 
         if current_phase != target_phase:
-            switching_penalty = -1.0 # Fixed penalty
+            switching_penalty = -1.0 
 
             yellow_phase = YELLOW_PHASE_MAP[current_phase]
             self.conn.trafficlight.setPhase(self.ts_id, yellow_phase)
@@ -147,10 +147,10 @@ class CrossroadEnv(gym.Env):
         self.current_step = 0
         self.current_phase_duration = 0
 
-        route_file = os.path.join(os.path.dirname(self.sumocfg_file), "dynamic.rou.xml")
+        # Create isolated files cleanly
         try:
             from traffic_generator import generate_dynamic_traffic
-            generate_dynamic_traffic(route_file)
+            generate_dynamic_traffic(self.route_file)
         except ImportError:
             pass
 
@@ -161,24 +161,40 @@ class CrossroadEnv(gym.Env):
                 pass
             self.conn = None
 
-        time.sleep(self.rank * 0.1)
+        # Command arguments: Explicitly instruct SUMO to override its config mapping
+        # and parse the isolated specific worker route file tracking layout.
+        sumo_args = [
+            "-c", self.sumocfg_file,
+            "--route-files", self.route_file,
+            "--no-warnings",
+            "--no-step-log",
+            "--random"
+        ]
 
-        binary = "sumo-gui" if self.use_gui else "sumo"
-        traci.start(
-            [binary, "-c", self.sumocfg_file, "--no-warnings", "--start", "--no-step-log"],
-            label=self.label,
-            port=self.port
-        )
+        if self.use_gui or not LIBSUMO_AVAILABLE:
+            binary = "sumo-gui" if self.use_gui else "sumo"
+            traci.start([binary] + sumo_args, label=self.label)
+            self.conn = traci.getConnection(self.label)
+        else:
+            # Parallel worker thread context isolation safety sleep
+            time.sleep(self.rank * 0.15)
+            libsumo.start(["sumo"] + sumo_args)
+            self.conn = libsumo
 
-        self.conn = traci.getConnection(self.label)
         state, _ = self._get_state()
         return state, {}
 
     def close(self):
         if self.conn:
             try:
-                traci.switch(self.label)
-                traci.close()
+                self.conn.close()
             except Exception:
                 pass
             self.conn = None
+        
+        # Cleanup isolated transient files to prevent directory congestion
+        if os.path.exists(self.route_file):
+            try:
+                os.remove(self.route_file)
+            except Exception:
+                pass

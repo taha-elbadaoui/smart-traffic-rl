@@ -4,15 +4,12 @@ import numpy as np
 import traci
 import uuid
 import os
-import time
-import random
+import socket
+from contextlib import closing
 
 YELLOW_PHASE_MAP = {0: 1, 2: 3}
 
 class TJunctionEnv(gym.Env):
-    """
-    Gymnasium environment for a T-Junction traffic signal controller.
-    """
     MAX_EPISODE_STEPS = 3600
 
     def __init__(self, sumocfg_file, use_gui=False):
@@ -23,22 +20,27 @@ class TJunctionEnv(gym.Env):
         self.conn = None
 
         self.max_cars = 15.0
-        self.step_length = 25   # Proper green time physics
+        self.step_length = 25   
         self.yellow_time = 3
         self.green_time = self.step_length - self.yellow_time
         
-        # System Guardrails
         self.min_green_time = 15
         self.max_green_time = 60
         self.current_phase_duration = 0
 
         self.action_space = spaces.Discrete(2)
-        # Obs: [queue_N, queue_E, phase_oh_0, phase_oh_1, phase_duration]
         self.observation_space = spaces.Box(low=0.0, high=1.0, shape=(5,), dtype=np.float32)
 
         self.ts_id = "TL_main"
         self.incoming_edges = ["edge_N", "edge_E"]
         self.current_step = 0
+
+    def _get_free_port(self):
+        """Dynamically finds a free OS port to prevent VecEnv collisions."""
+        with closing(socket.socket(socket.AF_INET, socket.SOCK_STREAM)) as s:
+            s.bind(('', 0))
+            s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+            return s.getsockname()[1]
 
     def _get_queue_lengths(self):
         return [self.conn.edge.getLastStepHaltingNumber(e) for e in self.incoming_edges]
@@ -52,7 +54,6 @@ class TJunctionEnv(gym.Env):
             current_phase = 0 if current_phase == 1 else 2
         phase_one_hot = [1.0, 0.0] if current_phase == 0 else [0.0, 1.0]
 
-        # Provide time dimension to satisfy Markov property
         norm_duration = [min(1.0, self.current_phase_duration / self.max_green_time)]
 
         state = np.array(norm_queues + phase_one_hot + norm_duration, dtype=np.float32)
@@ -64,7 +65,6 @@ class TJunctionEnv(gym.Env):
 
         base_penalty = -(total_waiting / self.max_cars)
         
-        # Linear starvation penalty - squaring fractions reduces the penalty
         max_queue = max(queues)
         starvation_penalty = -(max_queue / self.max_cars)
 
@@ -81,12 +81,10 @@ class TJunctionEnv(gym.Env):
 
         guardrail_penalty = 0.0
 
-        # Guardrail 1: Min green time override
         if target_phase != current_phase and self.current_phase_duration < self.min_green_time:
             target_phase = current_phase
             guardrail_penalty -= 5.0  
 
-        # Guardrail 2: Max green time override
         if target_phase == current_phase and self.current_phase_duration >= self.max_green_time:
             target_phase = 2 if current_phase == 0 else 0
             guardrail_penalty -= 10.0 
@@ -96,7 +94,7 @@ class TJunctionEnv(gym.Env):
         switching_penalty = 0.0
 
         if current_phase != target_phase:
-            switching_penalty = -1.0 # Fixed penalty to stop flickering
+            switching_penalty = -1.0 # Keep this flat. Do not scale it.
 
             yellow_phase = YELLOW_PHASE_MAP[current_phase]
             self.conn.trafficlight.setPhase(self.ts_id, yellow_phase)
@@ -144,9 +142,6 @@ class TJunctionEnv(gym.Env):
         self.current_step = 0
         self.current_phase_duration = 0
 
-        if self.conn is None:
-            time.sleep(random.uniform(0.1, 0.6))
-
         if self.conn is not None:
             try:
                 self.conn.close()
@@ -155,10 +150,13 @@ class TJunctionEnv(gym.Env):
             self.conn = None
 
         binary = "sumo-gui" if self.use_gui else "sumo"
+        port = self._get_free_port()
+        
         traci.start(
             [binary, "-c", self.sumocfg_file,
              "--no-warnings", "--start", "--no-step-log", "--random"],
-            label=self.label
+            label=self.label,
+            port=port
         )
 
         self.conn = traci.getConnection(self.label)

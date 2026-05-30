@@ -1,6 +1,5 @@
 import os
 import argparse
-import torch
 from stable_baselines3 import PPO
 from stable_baselines3.common.vec_env import SubprocVecEnv, VecNormalize
 from stable_baselines3.common.callbacks import CheckpointCallback
@@ -16,6 +15,8 @@ LOG_DIR = os.path.join(ROOT_DIR, "tensorboard_logs")
 os.makedirs(MODEL_DIR, exist_ok=True)
 os.makedirs(LOG_DIR, exist_ok=True)
 
+print("--- Running PPO Policy execution optimized context on: CPU ---")
+
 def make_env(rank, seed=0):
     def _init():
         env = CrossroadEnv(CONFIG_PATH, use_gui=False, rank=rank)
@@ -26,15 +27,16 @@ def make_env(rank, seed=0):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Parallel PPO Training for Crossroad")
     parser.add_argument("--mode", type=str, choices=["train", "random"], default="train")
-    parser.add_argument("--num_cpu", type=int, default=8)
+    # G14 Tuning: Defaulting to 6 workers leaves 2 physical cores free for Windows and 
+    # lets the remaining 6 cores sustain maximum single-core Turbo clocks without overheating.
+    parser.add_argument("--num_cpu", type=int, default=6)
     args = parser.parse_args()
 
     if args.mode == "train":
-        print(f"Starting PPO training across {args.num_cpu} environments...")
+        print(f"Starting PPO training across {args.num_cpu} parallel isolated environments...")
 
         vec_env = SubprocVecEnv([make_env(i) for i in range(args.num_cpu)])
 
-        # Widened clip_reward
         env = VecNormalize(
             vec_env,
             norm_obs=True,
@@ -55,19 +57,21 @@ if __name__ == "__main__":
             env,
             verbose=1,
             learning_rate=3e-4,
-            n_steps=1024,
-            batch_size=64,
+            # G14 Tuning: Increased n_steps and batch_size dramatically to let the CPU 
+            # run pure simulation steps uninterrupted without constantly pausing for policy updates.
+            n_steps=4096,      
+            batch_size=128,    
             n_epochs=10,
             gamma=0.99,
             gae_lambda=0.95,
             clip_range=0.2,
-            ent_coef=0.03, # Bumped for exploration
+            ent_coef=0.03,
             tensorboard_log=LOG_DIR,
             device="cpu",  
         )
 
         model.learn(
-            total_timesteps=1_000_000,
+            total_timesteps=500_000, 
             progress_bar=True,
             tb_log_name="ppo_crossroad",
             callback=checkpoint_cb,

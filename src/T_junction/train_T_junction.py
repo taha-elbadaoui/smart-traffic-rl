@@ -37,13 +37,12 @@ if __name__ == "__main__":
 
         vec_env = SubprocVecEnv([make_env(i) for i in range(args.num_cpu)])
 
-        # Widened clip_reward so the -10 guardrail penalties aren't squashed
         env = VecNormalize(
             vec_env,
             norm_obs=True,
             norm_reward=True,
             clip_obs=10.0,
-            clip_reward=50.0, 
+            clip_reward=50.0,
         )
 
         checkpoint_cb = CheckpointCallback(
@@ -64,7 +63,7 @@ if __name__ == "__main__":
             gamma=0.99,
             gae_lambda=0.95,
             clip_range=0.2,
-            ent_coef=0.03, # Bumped slightly to force time-state exploration
+            ent_coef=0.03, 
             tensorboard_log=LOG_DIR,
             device=device,
         )
