@@ -1,7 +1,7 @@
 import time
 import argparse
 import os
-from stable_baselines3 import PPO                                   # Fixed: was DQN
+from stable_baselines3 import PPO                                   
 from stable_baselines3.common.vec_env import DummyVecEnv, VecNormalize
 from wrapper_crossroad import CrossroadEnv
 
@@ -11,45 +11,31 @@ ROOT_DIR = os.path.abspath(os.path.join(SCRIPT_DIR, "../../"))
 CONFIG_PATH = os.path.join(ROOT_DIR, "envs/crossroad/env.sumocfg")
 MODEL_DIR = os.path.join(ROOT_DIR, "models")
 
-parser = argparse.ArgumentParser(description="Crossroad PPO Evaluation (GUI Mode)")
-parser.add_argument(
-    "--mode",
-    type=str,
-    choices=["final", "random"],
-    default="final",
-    help="'final' = trained PPO agent; 'random' = untrained baseline for comparison",
-)
+parser = argparse.ArgumentParser()
+parser.add_argument("--mode", type=str, choices=["final", "random"], default="final")
 args = parser.parse_args()
 
-# Fixed: model prefix is now ppo_crossroad_*, not dqn_crossroad_*
 model_name = f"ppo_crossroad_{args.mode}"
 model_path = os.path.join(MODEL_DIR, model_name)
 norm_path  = os.path.join(MODEL_DIR, "ppo_crossroad_vecnorm.pkl")
 
 print(f"Loading model: {model_name}")
 
-# Wrap in DummyVecEnv so VecNormalize works for single-env evaluation
 raw_env = DummyVecEnv([lambda: CrossroadEnv(CONFIG_PATH, use_gui=True)])
 
 if args.mode == "final" and os.path.exists(norm_path):
-    # Restore saved normalisation stats to match the training distribution
     env = VecNormalize.load(norm_path, raw_env)
-    env.training = False      # Freeze stats — do not update during evaluation
-    env.norm_reward = False   # Show real (un-normalised) rewards in terminal output
+    env.training = False      
+    env.norm_reward = False   
     print(f"VecNormalize stats loaded from {norm_path}")
 else:
     env = raw_env
-    if args.mode == "final":
-        print("Warning: normalizer file not found — running without obs normalisation.")
-        print("         Evaluation rewards may differ from training-time values.")
 
 try:
-    model = PPO.load(model_path, env=env)   # Fixed: was DQN.load
+    model = PPO.load(model_path, env=env)   
     print(f"✅ Model loaded from {model_path}.zip")
 except Exception as e:
-    print(f"❌ Could not load model at {os.path.abspath(model_path)}.zip")
-    print(f"   Error: {e}")
-    print("   Did you run train_crossroad.py --mode train first?")
+    print(f"❌ Error loading model: {e}")
     env.close()
     exit(1)
 

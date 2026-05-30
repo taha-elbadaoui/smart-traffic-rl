@@ -19,39 +19,33 @@ os.makedirs(LOG_DIR, exist_ok=True)
 device = "cuda" if torch.cuda.is_available() else "cpu"
 print(f"--- Running on: {device.upper()} ---")
 
-
 def make_env(rank, seed=0):
-    """Factory for a single T-Junction env with a unique random seed."""
     def _init():
         env = TJunctionEnv(CONFIG_PATH, use_gui=False)
         env.reset(seed=seed + rank)
         return env
     return _init
 
-
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="PPO Training for T-Junction Traffic Management")
+    parser = argparse.ArgumentParser(description="PPO Training for T-Junction")
     parser.add_argument("--mode", type=str, choices=["train", "random"], default="train")
-    parser.add_argument("--num_cpu", type=int, default=8, help="Number of parallel environments")
+    parser.add_argument("--num_cpu", type=int, default=8)
     args = parser.parse_args()
 
     if args.mode == "train":
-        print(f"🚀 Starting PPO training across {args.num_cpu} parallel environments...")
+        print(f"🚀 Starting PPO training across {args.num_cpu} environments...")
 
         vec_env = SubprocVecEnv([make_env(i) for i in range(args.num_cpu)])
 
-        # VecNormalize: automatically normalises observations AND rewards.
-        # This is the primary fix for high value_loss — PPO's critic no longer
-        # has to learn wildly different reward scales.
+        # Widened clip_reward so the -10 guardrail penalties aren't squashed
         env = VecNormalize(
             vec_env,
             norm_obs=True,
             norm_reward=True,
             clip_obs=10.0,
-            clip_reward=10.0,
+            clip_reward=50.0, 
         )
 
-        # Periodic checkpoint every 100k steps so you don't lose progress
         checkpoint_cb = CheckpointCallback(
             save_freq=100_000 // args.num_cpu,
             save_path=MODEL_DIR,
@@ -64,13 +58,13 @@ if __name__ == "__main__":
             env,
             verbose=1,
             learning_rate=3e-4,
-            n_steps=1024,           # Steps per worker per update → 8 × 1024 = 8192 total
+            n_steps=1024,           
             batch_size=64,
             n_epochs=10,
             gamma=0.99,
             gae_lambda=0.95,
             clip_range=0.2,
-            ent_coef=0.01,          # Maintains exploration; raise to 0.05 if policy stagnates
+            ent_coef=0.03, # Bumped slightly to force time-state exploration
             tensorboard_log=LOG_DIR,
             device=device,
         )
@@ -86,7 +80,6 @@ if __name__ == "__main__":
         model_path = os.path.join(MODEL_DIR, model_name)
         model.save(model_path)
 
-        # Save the normalizer stats alongside the model — required for correct evaluation
         norm_path = os.path.join(MODEL_DIR, "ppo_t_junction_vecnorm.pkl")
         env.save(norm_path)
         print(f"✅ Model saved:      {model_path}.zip")
@@ -96,8 +89,5 @@ if __name__ == "__main__":
         print("🎲 Creating an UNTRAINED random baseline model...")
         env = TJunctionEnv(CONFIG_PATH, use_gui=False)
         model = PPO("MlpPolicy", env, verbose=1, device=device)
-        model_name = "ppo_t_junction_random"
-        model_path = os.path.join(MODEL_DIR, model_name)
-        model.save(model_path)
-        print(f"✅ Random model saved: {model_path}.zip")
+        model.save(os.path.join(MODEL_DIR, "ppo_t_junction_random"))
         env.close()

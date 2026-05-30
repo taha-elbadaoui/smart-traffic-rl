@@ -7,27 +7,13 @@ import os
 import time
 import random
 
-# Fixed yellow phase map: green_phase -> yellow_phase
-# TL_main has phases: 0=GGrr, 1=yyrr, 2=rrGG, 3=rryy
 YELLOW_PHASE_MAP = {0: 1, 2: 3}
-
 
 class TJunctionEnv(gym.Env):
     """
     Gymnasium environment for a T-Junction traffic signal controller.
-
-    Observation (3,):  [queue_N_norm, queue_E_norm, phase_one_hot_0, phase_one_hot_1]
-        - queue norms: tanh-normalized halting vehicle counts
-        - phase one-hot: current active green phase encoded as [1,0] or [0,1]
-
-    Action (Discrete 2):
-        0 → Phase 0 green (East → straight + South)
-        1 → Phase 2 green (North → straight + East)
-
-    Reward: normalized congestion penalty + throughput bonus - switching penalty
     """
-
-    MAX_EPISODE_STEPS = 3600  # Hard cap to prevent infinite episodes
+    MAX_EPISODE_STEPS = 3600
 
     def __init__(self, sumocfg_file, use_gui=False):
         super().__init__()
@@ -37,17 +23,21 @@ class TJunctionEnv(gym.Env):
         self.conn = None
 
         self.max_cars = 15.0
-        self.step_length = 10   # Increased from 5 — gives green phase enough time to clear cars
+        self.step_length = 25   # Proper green time physics
         self.yellow_time = 3
         self.green_time = self.step_length - self.yellow_time
+        
+        # System Guardrails
+        self.min_green_time = 15
+        self.max_green_time = 60
+        self.current_phase_duration = 0
 
         self.action_space = spaces.Discrete(2)
-        # Extended to (4,): 2 queue values + 2 phase one-hot
-        self.observation_space = spaces.Box(low=0.0, high=1.0, shape=(4,), dtype=np.float32)
+        # Obs: [queue_N, queue_E, phase_oh_0, phase_oh_1, phase_duration]
+        self.observation_space = spaces.Box(low=0.0, high=1.0, shape=(5,), dtype=np.float32)
 
         self.ts_id = "TL_main"
         self.incoming_edges = ["edge_N", "edge_E"]
-
         self.current_step = 0
 
     def _get_queue_lengths(self):
@@ -57,49 +47,57 @@ class TJunctionEnv(gym.Env):
         queues = self._get_queue_lengths()
         norm_queues = [float(np.tanh(q / self.max_cars)) for q in queues]
 
-        # One-hot encode current phase so agent knows what's active
         current_phase = self.conn.trafficlight.getPhase(self.ts_id)
+        if current_phase not in YELLOW_PHASE_MAP:
+            current_phase = 0 if current_phase == 1 else 2
         phase_one_hot = [1.0, 0.0] if current_phase == 0 else [0.0, 1.0]
 
-        state = np.array(norm_queues + phase_one_hot, dtype=np.float32)
+        # Provide time dimension to satisfy Markov property
+        norm_duration = [min(1.0, self.current_phase_duration / self.max_green_time)]
+
+        state = np.array(norm_queues + phase_one_hot + norm_duration, dtype=np.float32)
         return state, sum(queues)
 
     def _compute_reward(self):
         queues = self._get_queue_lengths()
         total_waiting = sum(queues)
 
-        # Base congestion penalty, normalized to [-1, 0]
         base_penalty = -(total_waiting / self.max_cars)
-
-        # Non-linear starvation penalty on worst lane
+        
+        # Linear starvation penalty - squaring fractions reduces the penalty
         max_queue = max(queues)
-        starvation_penalty = -((max_queue / self.max_cars) ** 2)
+        starvation_penalty = -(max_queue / self.max_cars)
 
-        # Imbalance penalty (std deviation across lanes)
-        imbalance_penalty = -(np.std(queues) / self.max_cars)
+        imbalance_penalty = -(float(np.std(queues)) / self.max_cars)
 
         return (1.0 * base_penalty) + (2.0 * starvation_penalty) + (0.5 * imbalance_penalty)
 
     def step(self, action):
-        target_phase = int(action) * 2  # Maps action 0→phase 0, action 1→phase 2
+        target_phase = int(action) * 2
         current_phase = self.conn.trafficlight.getPhase(self.ts_id)
-
-        # Normalise: if SUMO has advanced to a yellow phase internally,
-        # snap back to the nearest green so our map is always valid.
+        
         if current_phase not in YELLOW_PHASE_MAP:
-            current_phase = max(YELLOW_PHASE_MAP.keys(),
-                                key=lambda p: 0 if p != current_phase - 1 else 1)
+            current_phase = 0 if current_phase == 1 else 2
+
+        guardrail_penalty = 0.0
+
+        # Guardrail 1: Min green time override
+        if target_phase != current_phase and self.current_phase_duration < self.min_green_time:
+            target_phase = current_phase
+            guardrail_penalty -= 5.0  
+
+        # Guardrail 2: Max green time override
+        if target_phase == current_phase and self.current_phase_duration >= self.max_green_time:
+            target_phase = 2 if current_phase == 0 else 0
+            guardrail_penalty -= 10.0 
 
         accumulated_reward = 0.0
         throughput = 0
         switching_penalty = 0.0
 
         if current_phase != target_phase:
-            # Scale switching cost relative to current total congestion
-            current_queues = sum(self._get_queue_lengths())
-            switching_penalty = -(max(5.0, current_queues * 0.5))
+            switching_penalty = -1.0 # Fixed penalty to stop flickering
 
-            # Yellow transition — use fixed map, never compute current_phase + 1
             yellow_phase = YELLOW_PHASE_MAP[current_phase]
             self.conn.trafficlight.setPhase(self.ts_id, yellow_phase)
             for _ in range(self.yellow_time):
@@ -108,43 +106,45 @@ class TJunctionEnv(gym.Env):
                 throughput += self.conn.simulation.getArrivedNumber()
                 self.current_step += 1
 
-            # Target green phase
             self.conn.trafficlight.setPhase(self.ts_id, target_phase)
             for _ in range(self.green_time):
                 self.conn.simulationStep()
                 accumulated_reward += self._compute_reward()
                 throughput += self.conn.simulation.getArrivedNumber()
                 self.current_step += 1
+            
+            self.current_phase_duration = self.green_time
         else:
-            # Maintain current green phase
             self.conn.trafficlight.setPhase(self.ts_id, target_phase)
             for _ in range(self.step_length):
                 self.conn.simulationStep()
                 accumulated_reward += self._compute_reward()
                 throughput += self.conn.simulation.getArrivedNumber()
                 self.current_step += 1
+            
+            self.current_phase_duration += self.step_length
 
         state, _ = self._get_state()
 
-        # Normalise accumulated reward over the step window + throughput bonus
         reward = float(
             (accumulated_reward / self.step_length)
             + (throughput * 2.0)
             + switching_penalty
+            + guardrail_penalty
         )
 
         sim_done = self.conn.simulation.getMinExpectedNumber() <= 0
         truncated = self.current_step >= self.MAX_EPISODE_STEPS
-        done = sim_done
+        done = sim_done or truncated
 
-        return state, reward, done, truncated, {}
+        return state, reward, done, False, {}
 
     def reset(self, seed=None, options=None):
         super().reset(seed=seed)
         self.current_step = 0
+        self.current_phase_duration = 0
 
         if self.conn is None:
-            # Stagger startup to reduce port collision risk in SubprocVecEnv
             time.sleep(random.uniform(0.1, 0.6))
 
         if self.conn is not None:

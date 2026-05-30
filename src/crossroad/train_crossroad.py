@@ -16,40 +16,33 @@ LOG_DIR = os.path.join(ROOT_DIR, "tensorboard_logs")
 os.makedirs(MODEL_DIR, exist_ok=True)
 os.makedirs(LOG_DIR, exist_ok=True)
 
-device = "cuda" if torch.cuda.is_available() else "cpu"
-print(f"--- Running on: {device.upper()} ---")
-
-
 def make_env(rank, seed=0):
-    """Factory for a single CrossroadEnv with a unique rank/port/seed per worker."""
     def _init():
         env = CrossroadEnv(CONFIG_PATH, use_gui=False, rank=rank)
         env.reset(seed=seed + rank)
         return env
     return _init
 
-
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Parallel PPO Training for Crossroad Traffic Management")
+    parser = argparse.ArgumentParser(description="Parallel PPO Training for Crossroad")
     parser.add_argument("--mode", type=str, choices=["train", "random"], default="train")
-    parser.add_argument("--num_cpu", type=int, default=8, help="Number of parallel environments")
+    parser.add_argument("--num_cpu", type=int, default=8)
     args = parser.parse_args()
 
     if args.mode == "train":
-        print(f"Starting PPO training across {args.num_cpu} parallel environments...")
+        print(f"Starting PPO training across {args.num_cpu} environments...")
 
         vec_env = SubprocVecEnv([make_env(i) for i in range(args.num_cpu)])
 
-        # VecNormalize: fixes high value_loss by auto-normalising rewards and observations
+        # Widened clip_reward
         env = VecNormalize(
             vec_env,
             norm_obs=True,
             norm_reward=True,
             clip_obs=10.0,
-            clip_reward=10.0,
+            clip_reward=50.0,
         )
 
-        # Save a checkpoint every 100k steps
         checkpoint_cb = CheckpointCallback(
             save_freq=100_000 // args.num_cpu,
             save_path=MODEL_DIR,
@@ -68,9 +61,9 @@ if __name__ == "__main__":
             gamma=0.99,
             gae_lambda=0.95,
             clip_range=0.2,
-            ent_coef=0.01,
+            ent_coef=0.03, # Bumped for exploration
             tensorboard_log=LOG_DIR,
-            device="cpu",   # MLP is always faster on CPU than GPU
+            device="cpu",  
         )
 
         model.learn(
@@ -93,8 +86,5 @@ if __name__ == "__main__":
         print("Creating untrained random baseline model...")
         env = CrossroadEnv(CONFIG_PATH, use_gui=False, rank=0)
         model = PPO("MlpPolicy", env, verbose=1, device="cpu")
-        model_name = "ppo_crossroad_random"
-        model_path = os.path.join(MODEL_DIR, model_name)
-        model.save(model_path)
-        print(f"Random baseline saved: {model_path}.zip")
+        model.save(os.path.join(MODEL_DIR, "ppo_crossroad_random"))
         env.close()
