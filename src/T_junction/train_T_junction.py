@@ -1,63 +1,103 @@
 import os
 import argparse
 import torch
-from stable_baselines3 import DQN
-from stable_baselines3.common.vec_env import SubprocVecEnv
+from stable_baselines3 import PPO
+from stable_baselines3.common.vec_env import SubprocVecEnv, VecNormalize
+from stable_baselines3.common.callbacks import CheckpointCallback
 from wrapper_T_junction import TJunctionEnv
 
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 ROOT_DIR = os.path.abspath(os.path.join(SCRIPT_DIR, "../../"))
 
-CONFIG_PATH = os.path.join(ROOT_DIR, "envs/t_junction/env.sumocfg")
+CONFIG_PATH = os.path.join(ROOT_DIR, "envs/T_junction/env.sumocfg")
 MODEL_DIR = os.path.join(ROOT_DIR, "models")
+LOG_DIR = os.path.join(ROOT_DIR, "tensorboard_logs")
 
 os.makedirs(MODEL_DIR, exist_ok=True)
+os.makedirs(LOG_DIR, exist_ok=True)
 
-# Hardware Detection
 device = "cuda" if torch.cuda.is_available() else "cpu"
 print(f"--- Running on: {device.upper()} ---")
 
+
 def make_env(rank, seed=0):
-    """Utility function for multiprocessed env."""
+    """Factory for a single T-Junction env with a unique random seed."""
     def _init():
-        # Using absolute path is safer for subprocesses
         env = TJunctionEnv(CONFIG_PATH, use_gui=False)
         env.reset(seed=seed + rank)
         return env
     return _init
 
+
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Parallel Training for T-Junction Management")
+    parser = argparse.ArgumentParser(description="PPO Training for T-Junction Traffic Management")
     parser.add_argument("--mode", type=str, choices=["train", "random"], default="train")
-    parser.add_argument("--num_cpu", type=int, default=8, help="Number of parallel threads")
+    parser.add_argument("--num_cpu", type=int, default=8, help="Number of parallel environments")
     args = parser.parse_args()
 
     if args.mode == "train":
-        print(f"🚀 Lancement de l'entraînement DQN sur {args.num_cpu} environnements...")
-        
-        # Parallelize the 200,000 steps across multiple cores
-        env = SubprocVecEnv([make_env(i) for i in range(args.num_cpu)])
-        
-        model = DQN(
-            "MlpPolicy", 
-            env, 
-            verbose=1, 
-            learning_rate=1e-3, 
-            buffer_size=50000, 
-            exploration_fraction=0.5,
-            device=device
+        print(f"🚀 Starting PPO training across {args.num_cpu} parallel environments...")
+
+        vec_env = SubprocVecEnv([make_env(i) for i in range(args.num_cpu)])
+
+        # VecNormalize: automatically normalises observations AND rewards.
+        # This is the primary fix for high value_loss — PPO's critic no longer
+        # has to learn wildly different reward scales.
+        env = VecNormalize(
+            vec_env,
+            norm_obs=True,
+            norm_reward=True,
+            clip_obs=10.0,
+            clip_reward=10.0,
         )
-        
-        model.learn(total_timesteps=200000, progress_bar=True)
-        model_name = "dqn_t_junction_parallel"
+
+        # Periodic checkpoint every 100k steps so you don't lose progress
+        checkpoint_cb = CheckpointCallback(
+            save_freq=100_000 // args.num_cpu,
+            save_path=MODEL_DIR,
+            name_prefix="ppo_t_junction_ckpt",
+            verbose=1,
+        )
+
+        model = PPO(
+            "MlpPolicy",
+            env,
+            verbose=1,
+            learning_rate=3e-4,
+            n_steps=1024,           # Steps per worker per update → 8 × 1024 = 8192 total
+            batch_size=64,
+            n_epochs=10,
+            gamma=0.99,
+            gae_lambda=0.95,
+            clip_range=0.2,
+            ent_coef=0.01,          # Maintains exploration; raise to 0.05 if policy stagnates
+            tensorboard_log=LOG_DIR,
+            device=device,
+        )
+
+        model.learn(
+            total_timesteps=500_000,
+            progress_bar=True,
+            tb_log_name="ppo_t_junction",
+            callback=checkpoint_cb,
+        )
+
+        model_name = "ppo_t_junction_final"
+        model_path = os.path.join(MODEL_DIR, model_name)
+        model.save(model_path)
+
+        # Save the normalizer stats alongside the model — required for correct evaluation
+        norm_path = os.path.join(MODEL_DIR, "ppo_t_junction_vecnorm.pkl")
+        env.save(norm_path)
+        print(f"✅ Model saved:      {model_path}.zip")
+        print(f"✅ Normalizer saved: {norm_path}")
+
     else:
-        print("🎲 Creating an UNTRAINED random model...")
+        print("🎲 Creating an UNTRAINED random baseline model...")
         env = TJunctionEnv(CONFIG_PATH, use_gui=False)
-        model = DQN("MlpPolicy", env, verbose=1, device=device)
-        model_name = "dqn_t_junction_random"
-
-    model_path = os.path.join(MODEL_DIR, model_name)
-    model.save(model_path)
-    print(f"✅ Training Complete. Final model saved at: {model_path}")
-
-    env.close()
+        model = PPO("MlpPolicy", env, verbose=1, device=device)
+        model_name = "ppo_t_junction_random"
+        model_path = os.path.join(MODEL_DIR, model_name)
+        model.save(model_path)
+        print(f"✅ Random model saved: {model_path}.zip")
+        env.close()
