@@ -1,16 +1,16 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <routes>
     <vType id="standard_car" vClass="passenger" accel="2.6" decel="4.5" sigma="0.5" length="4.5" maxSpeed="15"/>
-    <flow id="flow_0" begin="0" end="3600" probability="0.039" from="in_N" to="out_S" type="standard_car" departLane="best" departSpeed="max"/>
-    <flow id="flow_1" begin="0" end="3600" probability="0.042" from="in_N" to="out_E" type="standard_car" departLane="best" departSpeed="max"/>
-    <flow id="flow_2" begin="0" end="3600" probability="0.041" from="in_N" to="out_W" type="standard_car" departLane="best" departSpeed="max"/>
-    <flow id="flow_3" begin="0" end="3600" probability="0.047" from="in_S" to="out_N" type="standard_car" departLane="best" departSpeed="max"/>
-    <flow id="flow_4" begin="0" end="3600" probability="0.044" from="in_S" to="out_E" type="standard_car" departLane="best" departSpeed="max"/>
-    <flow id="flow_5" begin="0" end="3600" probability="0.039" from="in_S" to="out_W" type="standard_car" departLane="best" departSpeed="max"/>
-    <flow id="flow_6" begin="0" end="3600" probability="0.047" from="in_W" to="out_E" type="standard_car" departLane="best" departSpeed="max"/>
-    <flow id="flow_7" begin="0" end="3600" probability="0.038" from="in_W" to="out_N" type="standard_car" departLane="best" departSpeed="max"/>
-    <flow id="flow_8" begin="0" end="3600" probability="0.042" from="in_W" to="out_S" type="standard_car" departLane="best" departSpeed="max"/>
-    <flow id="flow_9" begin="0" end="3600" probability="0.043" from="int_E" to="out_W" type="standard_car" departLane="best" departSpeed="max"/>
-    <flow id="flow_10" begin="0" end="3600" probability="0.037" from="int_E" to="out_N" type="standard_car" departLane="best" departSpeed="max"/>
-    <flow id="flow_11" begin="0" end="3600" probability="0.041" from="int_E" to="out_S" type="standard_car" departLane="best" departSpeed="max"/>
+    <flow id="flow_0" begin="0" end="3600" probability="0.061" from="in_N" to="out_S" type="standard_car" departLane="best" departSpeed="max"/>
+    <flow id="flow_1" begin="0" end="3600" probability="0.074" from="in_N" to="out_E" type="standard_car" departLane="best" departSpeed="max"/>
+    <flow id="flow_2" begin="0" end="3600" probability="0.081" from="in_N" to="out_W" type="standard_car" departLane="best" departSpeed="max"/>
+    <flow id="flow_3" begin="0" end="3600" probability="0.067" from="in_S" to="out_N" type="standard_car" departLane="best" departSpeed="max"/>
+    <flow id="flow_4" begin="0" end="3600" probability="0.070" from="in_S" to="out_E" type="standard_car" departLane="best" departSpeed="max"/>
+    <flow id="flow_5" begin="0" end="3600" probability="0.074" from="in_S" to="out_W" type="standard_car" departLane="best" departSpeed="max"/>
+    <flow id="flow_6" begin="0" end="3600" probability="0.069" from="in_W" to="out_E" type="standard_car" departLane="best" departSpeed="max"/>
+    <flow id="flow_7" begin="0" end="3600" probability="0.081" from="in_W" to="out_N" type="standard_car" departLane="best" departSpeed="max"/>
+    <flow id="flow_8" begin="0" end="3600" probability="0.083" from="in_W" to="out_S" type="standard_car" departLane="best" departSpeed="max"/>
+    <flow id="flow_9" begin="0" end="3600" probability="0.086" from="int_E" to="out_W" type="standard_car" departLane="best" departSpeed="max"/>
+    <flow id="flow_10" begin="0" end="3600" probability="0.075" from="int_E" to="out_N" type="standard_car" departLane="best" departSpeed="max"/>
+    <flow id="flow_11" begin="0" end="3600" probability="0.063" from="int_E" to="out_S" type="standard_car" departLane="best" departSpeed="max"/>
 </routes>

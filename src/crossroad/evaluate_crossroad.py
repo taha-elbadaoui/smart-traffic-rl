@@ -11,31 +11,51 @@ ROOT_DIR = os.path.abspath(os.path.join(SCRIPT_DIR, "../../"))
 CONFIG_PATH = os.path.join(ROOT_DIR, "envs/crossroad/env.sumocfg")
 MODEL_DIR = os.path.join(ROOT_DIR, "models")
 
-parser = argparse.ArgumentParser()
-parser.add_argument("--mode", type=str, choices=["final", "random"], default="final")
+parser = argparse.ArgumentParser(description="Crossroad PPO Evaluation (GUI Mode)")
+# Upgraded: Added explicit choices to select between your 500k and 2M checkpoints cleanly
+parser.add_argument(
+    "--mode",
+    type=str,
+    choices=["500k", "2M", "random"],
+    default="2M",
+    help="Select which model type to evaluate in the visual GUI simulation",
+)
 args = parser.parse_args()
 
-model_name = f"ppo_crossroad_{args.mode}"
-model_path = os.path.join(MODEL_DIR, model_name)
-norm_path  = os.path.join(MODEL_DIR, "ppo_crossroad_vecnorm.pkl")
+# Dynamically resolve file names depending on selected model scale
+if args.mode == "500k":
+    model_name = "ppo_crossroad_500k_final"
+    norm_name = "ppo_crossroad_500k_vecnorm.pkl"
+elif args.mode == "2M":
+    model_name = "ppo_crossroad_2M_final"
+    norm_name = "ppo_crossroad_2M_vecnorm.pkl"
+else:
+    model_name = "ppo_crossroad_random"
+    norm_name = None
 
-print(f"Loading model: {model_name}")
+model_path = os.path.join(MODEL_DIR, model_name)
+norm_path  = os.path.join(MODEL_DIR, norm_name) if norm_name else None
+
+print(f"Loading evaluation target model configuration: {model_name}")
 
 raw_env = DummyVecEnv([lambda: CrossroadEnv(CONFIG_PATH, use_gui=True)])
 
-if args.mode == "final" and os.path.exists(norm_path):
+if args.mode != "random" and norm_path and os.path.exists(norm_path):
     env = VecNormalize.load(norm_path, raw_env)
     env.training = False      
     env.norm_reward = False   
-    print(f"VecNormalize stats loaded from {norm_path}")
+    print(f"VecNormalize stats loaded successfully from {norm_path}")
 else:
     env = raw_env
+    if args.mode != "random":
+        print("Warning: normalizer file not found — running without obs normalisation.")
 
 try:
     model = PPO.load(model_path, env=env)   
     print(f"✅ Model loaded from {model_path}.zip")
 except Exception as e:
-    print(f"❌ Error loading model: {e}")
+    print(f"❌ Could not load model at {os.path.abspath(model_path)}.zip")
+    print(f"   Error: {e}")
     env.close()
     exit(1)
 

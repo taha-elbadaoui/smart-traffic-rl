@@ -70,22 +70,25 @@ if __name__ == "__main__":
             device="cpu",  
         )
 
+        # Ensure the learn block uses a separate tensorboard graph name
         model.learn(
-            total_timesteps=500_000, 
+            total_timesteps=2_000_000, 
             progress_bar=True,
-            tb_log_name="ppo_crossroad",
+            tb_log_name="ppo_crossroad_2M", 
             callback=checkpoint_cb,
         )
 
-        model_name = "ppo_crossroad_final"
+        # Update these strings to isolate the 2M outputs
+        model_name = "ppo_crossroad_2M_final"
         model_path = os.path.join(MODEL_DIR, model_name)
         model.save(model_path)
 
-        norm_path = os.path.join(MODEL_DIR, "ppo_crossroad_vecnorm.pkl")
+        norm_path = os.path.join(MODEL_DIR, "ppo_crossroad_2M_vecnorm.pkl")
         env.save(norm_path)
         print(f"Model saved:      {model_path}.zip")
         print(f"Normalizer saved: {norm_path}")
 
+        
     else:
         print("Creating untrained random baseline model...")
         env = CrossroadEnv(CONFIG_PATH, use_gui=False, rank=0)
