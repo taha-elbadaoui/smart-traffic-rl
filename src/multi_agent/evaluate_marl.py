@@ -16,34 +16,34 @@ CONFIG_PATH = os.path.join(ROOT_DIR, "envs", "boulevard_coordonne", "env.sumocfg
 MODEL_DIR = os.path.join(ROOT_DIR, "models")
 
 def main():
-    # 1. Ajout d'arguments pour pouvoir couper l'interface graphique si besoin
+    # 1. Ajout d'arguments pour pouvoir couper l'interface graphique si besoin, Walid
     parser = argparse.ArgumentParser(description="MARL PPO Evaluation (GUI Mode)")
-    parser.add_argument("--no_gui", action="store_true", help="Désactiver l'interface graphique sumo-gui")
+    parser.add_argument("--no_gui", action="store_true", help="Desactiver l'interface graphique sumo-gui")
     args = parser.parse_args()
 
     use_gui = not args.no_gui
     model_path = os.path.join(MODEL_DIR, "ppo_marl_vague_verte_final")
 
-    print(f"=== Walid, initialisation du script d'évaluation visuelle ===")
-    print(f"Mode Graphique (sumo-gui) : {'ACTIVÉ' if use_gui else 'DÉSACTIVÉ'}")
+    print(f"=== Walid, initialisation du script d'evaluation visuelle ===")
+    print(f"Mode Graphic (sumo-gui) : {'ACTIVE' if use_gui else 'DESACTIVE'}")
 
-    # 2. Instanciation de l'environnement de base ciblant vos deux feux synchronisés
+    # 2. Instanciation de l'environnement de base ciblant vos deux feux synchronises
     base_marl_env = MultiAgentTrafficEnv(
         sumocfg_path=CONFIG_PATH,
-        tls_ids=["B0", "C0"],  # Alignés sur la nomenclature netgenerate
+        tls_ids=["B0", "C0"],  # Alignes sur la nomenclature netgenerate
         gui=use_gui
     )
 
-    # 3. Emballage dans le même wrapper centralisé qu'à l'entraînement
+    # 3. Emballage dans le même wrapper centralise qu'a l'entrainement
     env = CentralizedTrafficEnvWrapper(base_marl_env)
 
     print(f"Chargement du cerveau de l'IA depuis : {model_path}.zip")
     try:
-        # Chargement du modèle PPO entraîné
+        # Chargement du modele PPO entraine
         model = PPO.load(model_path, env=env)
-        print("✅ Modèle chargé avec succès !")
+        print("[SUCCESS] Modele charge avec succes !")
     except Exception as e:
-        print(f"❌ Impossible de charger le modèle. Vérifie qu'il a bien été entraîné. Erreur : {e}")
+        print(f"[ERROR] Impossible de charger le modele. Verifie qu'il a bien ete entraine. Erreur : {e}")
         env.close()
         return
 
@@ -53,35 +53,34 @@ def main():
     step_count = 0
     total_reward = 0.0
 
-    print("\n🚥 Lancement du trafic sur le boulevard... Regarde la synchronisation !")
+    print("\n[INFO] Lancement du trafic sur le boulevard... Regarde la synchronisation !")
     while not done:
-        # Détermination de l'action de manière déterministe (Pas d'exploration aléatoire ici, Walid)
+        # Determination de l'action de maniere deterministe (Pas d'exploration aleatoire ici, Walid)
         action, _ = model.predict(obs, deterministic=True)
 
-        # Exécution du pas de temps dans l'environnement unifié
+        # Execution du pas de temps dans l'environnement unifie
         obs, reward, terminated, truncated, info = env.step(action)
 
         total_reward += reward
         step_count += 1
 
-        # Affichage dynamique des décisions en direct pour vous aider à analyser
+        # Affichage dynamique des decisions en direct pour vous aider a analyser, Walid
         phase_b0 = "VERT Principal" if action[0] == 0 else "VERT Secondaire"
         phase_c0 = "VERT Principal" if action[1] == 0 else "VERT Secondaire"
         
         print(f"Pas {step_count:4d} | Phase B0: {phase_b0:<15} | Phase C0: {phase_c0:<15} | Score: {reward:8.2f}")
 
-        # Ralentisseur pour vous laisser le temps d'observer le déplacement des voitures sur l'écran
+        # Ralentisseur pour vous laisser le temps d'observer le deplacement des voitures sur l'ecran
         if use_gui:
             time.sleep(0.05)
 
         done = terminated or truncated
 
-    print(f"\n=== Fin de la simulation d'évaluation, Walid ! ===")
-    print(f"Durée totale : {step_count} secondes de simulation.")
-    print(f"Pénalité totale d'attente (Collaborative) : {total_reward:.2f}")
+    print(f"\n=== Fin de la simulation d'evaluation, Walid ! ===")
+    print(f"Duree totale : {step_count} secondes de simulation.")
+    print(f"Penalite totale d'attente (Collaborative) : {total_reward:.2f}")
 
     env.close()
 
 if __name__ == "__main__":
     main()
-

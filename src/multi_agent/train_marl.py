@@ -37,7 +37,7 @@ class CentralizedTrafficEnvWrapper(gym.Env):
         initial_states = self.base_env.reset()
         total_obs_dim = sum([len(state) for state in initial_states.values()])
         
-        # 🔥 CRUCIAL : On ferme immédiatement la connexion d'essai pour laisser 
+        # CRUCIAL : On ferme immédiatement la connexion d'essai pour laisser 
         # le champ libre au reset d'entraînement de Stable-Baselines3 !
         self.base_env.close()
         
@@ -105,7 +105,8 @@ if __name__ == "__main__":
         device="cpu",  
     )
 
-    print(f"🚀 Lancement de l'apprentissage collaboratif...")
+    # ✅ Correction Walid : Remplacement de l'émoji fusée pour éviter le crash cp1252
+    print("[INFO] Lancement de l'apprentissage collaboratif...")
     model.learn(
         total_timesteps=100_000,
         progress_bar=True,
@@ -115,6 +116,8 @@ if __name__ == "__main__":
 
     final_model_path = os.path.join(MODEL_DIR, "ppo_marl_vague_verte_final")
     model.save(final_model_path)
-    print(f"✅ Modèle sauvegardé avec succès : {final_model_path}.zip")
+    
+    # ✅ Correction Walid : Remplacement de l'émoji de validation
+    print(f"[SUCCESS] Modele sauvegarde avec succes : {final_model_path}.zip")
     
     env.close()
