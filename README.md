@@ -1,42 +1,40 @@
-# 🚦 Traffic Flow Optimization via Reinforcement Learning
+# 🚦 Multi-Agent Traffic Flow Optimization via Reinforcement Learning
 
-> **Institution:** INPT Rabat (ASEDS)
-> **Team:** Taha El Badaoui & Walid Hazzam
+> **Institution:** Institut National des Postes et Télécommunications (INPT), Rabat  
+> **Specialization:** Advanced Software Engineering for Digital Services (ASEDS)  
+> **Authors:** Taha El Badaoui & Walid Hazzam  
 
 ---
 
-## 📝 Project Overview
+## 📝 Project Architecture & Real State
 
-This project designs a **Multi-Objective Reinforcement Learning (RL)** system to optimize traffic signal control at various intersection types (T-Junctions and Crossroads).
+This project implements high-performance, single-intersection, and coordinated multi-intersection traffic control policies using **Proximal Policy Optimization (PPO)**. By wrapping the **Simulation of Urban MObility (SUMO)** engine inside custom `gymnasium.Env` interfaces, the system transforms rigid signal control schedules into dynamic, state-reflective policies.
 
-### Goals
-
-* Maximize traffic throughput
-* Minimize waiting time
-* Reduce environmental impact (CO₂ emissions & fuel consumption)
-
-A **single-agent architecture** is used to deeply optimize state-space representation and reward shaping, avoiding the complexity of multi-agent coordination while providing a strong custom baseline.
+Moving beyond simple baselines, the architecture features:
+1. **Parallelized Scaling (`SubprocVecEnv`):** Overcomes SUMO's single-threaded limitations by mapping environments across isolated OS worker processes. Each process dynamically generates its own rank-suffixed traffic layout to prevent multi-core write collisions.
+2. **Deterministic Evaluation Safety:** Evaluation pipelines enforce strict structural guardrails (`sys.exit(1)`) preventing unnormalized state vectors from corrupting inference validation if `VecNormalize` statistics are missing.
+3. **Multi-Agent Coordination Corridor (CTCE):** Implements Centralized Training Centralized Execution across a 1x2 sequential intersection corridor to naturally discover "Green Wave" synchronization and prevent regional queue starvation.
 
 ---
 
 ## 🛠 Tech Stack
 
-| Component       | Technology                                                       |
-| --------------- | ---------------------------------------------------------------- |
-| Simulator       | SUMO (Simulation of Urban MObility)                              |
-| RL Framework    | Stable-Baselines3 (DQN → PPO)                                    |
-| Environment     | Custom `gymnasium.Env` wrappers (`TJunctionEnv`, `CrossroadEnv`) |
-| Training Mode   | `libsumo` — headless C++ bindings (high-speed)                   |
-| Evaluation Mode | `traci` — GUI via `sumo-gui` (visual verification)               |
+| Component       | Technology                                                                 |
+| --------------- | -------------------------------------------------------------------------- |
+| Simulator       | SUMO (Simulation of Urban MObility)                                        |
+| RL Framework    | Stable-Baselines3 (PPO)                                                    |
+| Environment     | Custom `gymnasium.Env` wrappers (Single & Flattened Multi-Agent)           |
+| Vectorization   | `SubprocVecEnv` & `VecNormalize` (Multi-CPU Training)                      |
+| Training Mode   | `libsumo` — Headless C++ bindings for maximum parallel throughput          |
+| Evaluation Mode | `traci` — GUI via `sumo-gui` for visual verification and policy inspection |
 
 ---
 
-## 🚀 Key Features
+## 📂 Supported Environments
 
-* ⚡ **High-Speed Training** — Bypasses GUI and TCP overhead via C++ bindings (`libsumo`) during the training loop.
-* 👁️ **Visual Verification** — Dynamically switches to `traci` post-training for human observation of agent behavior.
-* 🚗 **Queue-Based Rewards** — Minimizes the normalized sum of halting vehicles on incoming lanes.
-* 🌱 **Environmental Awareness** *(Upcoming)* — Real-time CO₂ and fuel tracking to penalize harsh braking and inefficient flow patterns.
+1. **T-Junction (`1x1`):** A standard 3-way intersection baseline.
+2. **Crossroad (`1x1`):** A complex 4-way intersection handling dynamic, probabilistic traffic generation per parallel worker.
+3. **Coordinated Boulevard (`1x2`):** Two sequential traffic lights (`B0`, `C0`). Trained via a Centralized PPO wrapper to synchronize phases and optimize corridor throughput.
 
 ---
 
@@ -48,107 +46,3 @@ Ensure your virtual environment is active, then install dependencies:
 
 ```bash
 pip install -r requirements.txt
-```
-
-### 2. Headless Training (Maximum Speed)
-
-Training defaults to `libsumo` to prevent GUI overhead. The repository currently supports two intersection environments.
-
-#### T-Junction
-
-```bash
-python src/T_junction/train_T_junction.py --mode train
-```
-
-**Outputs:**
-
-```text
-models/ppo_t_junction_final.zip
-models/vecnormalize_t_junction.pkl
-```
-
-#### Crossroad
-
-```bash
-python src/crossroad/train_crossroad.py --mode train
-```
-
-**Outputs:**
-
-```text
-models/ppo_crossroad_final.zip
-models/vecnormalize_crossroad.pkl
-```
-
-> **Note:** You can also run the scripts with `--mode random` to generate an untrained baseline model for comparison.
-
----
-
-### 3. Visual Evaluation (GUI Mode)
-
-To load a saved model and observe its behavior via `sumo-gui`, execute the corresponding evaluation script:
-
-```bash
-# Evaluate T-Junction
-python src/T_junction/evaluate_T_junction.py
-
-# Evaluate Crossroad
-python src/crossroad/evaluate_crossroad.py
-```
-
----
-
-## 📊 Understanding Training Logs
-
-Stable-Baselines3 outputs a metrics table during training.
-
-| Metric             | Description                                                   | Target                    |
-| ------------------ | ------------------------------------------------------------- | ------------------------- |
-| `ep_rew_mean`      | Average penalty per episode (negative sum of waiting cars)    | → 0 over time             |
-| `ep_len_mean`      | Average steps until all scheduled cars clear the intersection | Lower is generally better |
-| `exploration_rate` | Epsilon-greedy decay (starts around 0.50)                     | Decreasing                |
-| `loss`             | Q-value prediction error                                      | Stabilizing               |
-
----
-
-## 📅 Implementation Roadmap
-
-### Phase 1 — Foundational Environments ✅ Completed
-
-* [x] Build minimal intersection layouts (T-Junction & Crossroad) in NetEdit
-* [x] Implement custom `gymnasium.Env` with dynamic `libsumo/traci` switching
-* [x] Train and evaluate baseline agents (queue-based control) for both environments
-
-### Phase 2 — Scaling & Realism 🚧 In Progress
-
-* [ ] Simulate rush-hour traffic using `randomTrips.py` for dynamic `.rou.xml` generation
-* [ ] Switch to PPO for improved stability in larger state spaces
-* [ ] Centralize configuration and hyperparameters
-
-### Phase 3 — Multi-Objective Optimization
-
-* [ ] Integrate CO₂-based reward signals
-* [ ] Benchmark against fixed-time and actuated traffic signals
-* [ ] Visualize results (waiting time vs. emissions trade-offs)
-
----
-
-## 📊 Expected Outcomes
-
-* Reduced average waiting time at intersections
-* Improved traffic throughput
-* Lower emissions compared to traditional fixed-signal systems
-
----
-
-## 📌 Future Work
-
-* Multi-agent traffic networks
-* Real-world sensor data integration
-* Deployment on smart city infrastructure
-
----
-
-## 📄 License
-
-This project is developed as part of the ASEDS engineering curriculum at INPT Rabat for academic and research purposes.
