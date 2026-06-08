@@ -23,8 +23,8 @@ os.makedirs(LOG_DIR, exist_ok=True)
 
 class CentralizedTrafficEnvWrapper(gym.Env):
     """
-    Objectif : Convertir l'environnement Multi-Agent dictionnaire en un environnement 
-    Gymnasium standard compatible à 100% avec Stable-Baselines3.
+    Objectif : Pont d'encapsulation pour rendre l'environnement multi-agent 
+    compatible à 100% avec Stable-Baselines3 sans double-connexion.
     """
     def __init__(self, base_env):
         super().__init__()
@@ -33,22 +33,21 @@ class CentralizedTrafficEnvWrapper(gym.Env):
         
         print(f"Walid, initialisation du pont Gymnasium pour les feux : {self.tls_ids}")
         
-        # On lance un reset d'essai pour détecter dynamiquement la taille des états de SUMO
+        # Reset d'essai pour récupérer dynamiquement la taille des états de SUMO
         initial_states = self.base_env.reset()
-        
-        # Calcul de la dimension totale en combinant les capteurs de chaque carrefour
         total_obs_dim = sum([len(state) for state in initial_states.values()])
         
-        # Espace d'observation unifié
-        self.observation_space = spaces.Box(
-            low=0.0, high=1.0, shape=(total_obs_dim,), dtype=np.float32
-        )
+        # 🔥 CRUCIAL : On ferme immédiatement la connexion d'essai pour laisser 
+        # le champ libre au reset d'entraînement de Stable-Baselines3 !
+        self.base_env.close()
         
-        # Actions MultiDiscrete : [2, 2] car 2 feux ayant chacun 2 actions possibles (0 ou 1)
+        # Espace d'observation et d'actions combiné
+        self.observation_space = spaces.Box(
+            low=-np.inf, high=np.inf, shape=(total_obs_dim,), dtype=np.float32
+        )
         self.action_space = spaces.MultiDiscrete([2] * len(self.tls_ids))
         
     def _flatten_obs(self, states_dict):
-        # Interprétation : On fusionne les vecteurs de files d'attente de J1 et J2 en un seul vecteur plat
         return np.concatenate([states_dict[tls_id] for tls_id in self.tls_ids])
 
     def reset(self, seed=None, options=None):
@@ -57,18 +56,12 @@ class CentralizedTrafficEnvWrapper(gym.Env):
         return self._flatten_obs(states_dict), {}
 
     def step(self, action_array):
-        # On convertit le tableau d'actions de l'IA [a1, a2] en dictionnaire {"1_0": a1, "2_0": a2}
+        # Traduction du vecteur d'actions vers le dictionnaire d'agents
         action_dict = {self.tls_ids[i]: action_array[i] for i in range(len(self.tls_ids))}
-        
-        # Envoi des actions simultanées à SUMO
         next_states_dict, rewards_dict, terminateds, info = self.base_env.step(action_dict)
         
-        # Aplatissement du nouvel état combiné
         obs = self._flatten_obs(next_states_dict)
-        
-        # Récompense collective : Somme des récompenses pour forcer la coopération pour la vague verte !
-        total_reward = float(sum(rewards_dict.values()))
-        
+        total_reward = float(sum(rewards_dict.values())) # Récompense collaborative
         terminated = terminateds["__all__"]
         truncated = False
         
@@ -81,25 +74,24 @@ class CentralizedTrafficEnvWrapper(gym.Env):
 if __name__ == "__main__":
     print("--- Running MARL Training Optimized Context on: CPU ---")
 
-    # 1. Instanciation de l'environnement de base SUMO
+    # 1. Instanciation de l'environnement de base SUMO ciblant B0 et C0
     base_marl_env = MultiAgentTrafficEnv(
         sumocfg_path=CONFIG_PATH,
-        tls_ids=["1_0", "2_0"],  # ID par défaut générés par netgenerate
+        tls_ids=["B0", "C0"],  
         gui=False
     )
 
-    # 2. Emballage dans le wrapper centralisé pour Stable-Baselines3
+    # 2. Emballage protecteur
     env = CentralizedTrafficEnvWrapper(base_marl_env)
 
-    # 3. Configuration des sauvegardes automatiques pendant l'entraînement, Walid
     checkpoint_cb = CheckpointCallback(
-        save_freq=20_000,
+        save_freq=10_000,
         save_path=MODEL_DIR,
         name_prefix="ppo_marl_vague_verte_ckpt",
         verbose=1,
     )
 
-    # 4. Initialisation du modèle PPO avec tes hyperparamètres favoris
+    # 3. Modèle PPO unifié pour la synchronisation
     model = PPO(
         "MlpPolicy",
         env,
@@ -109,25 +101,20 @@ if __name__ == "__main__":
         batch_size=64,    
         n_epochs=10,
         gamma=0.99,
-        gae_lambda=0.95,
-        clip_range=0.2,
-        ent_coef=0.03,
         tensorboard_log=LOG_DIR,
         device="cpu",  
     )
 
-    # 5. Lancement de l'apprentissage sur 200 000 pas de temps
-    print(f"🚀 Walid, le modèle PPO commence à apprendre la synchronisation des feux...")
+    print(f"🚀 Lancement de l'apprentissage collaboratif...")
     model.learn(
-        total_timesteps=200_000,
+        total_timesteps=100_000,
         progress_bar=True,
         tb_log_name="ppo_marl_vague_verte",
         callback=checkpoint_cb,
     )
 
-    # 6. Sauvegarde finale du modèle entraîné
     final_model_path = os.path.join(MODEL_DIR, "ppo_marl_vague_verte_final")
     model.save(final_model_path)
-    print(f"✅ Modèle d'IA collaboratif sauvegardé avec succès : {final_model_path}.zip")
+    print(f"✅ Modèle sauvegardé avec succès : {final_model_path}.zip")
     
     env.close()
