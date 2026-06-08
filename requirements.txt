@@ -1,6 +1,14 @@
+# --- Reinforcement Learning Core ---
 gymnasium==0.29.1
-stable-baselines3[extra]
-sumo-rl
-libsumo
-matplotlib
-pandas
+stable-baselines3==2.3.2
+tensorboard>=2.14.0
+
+# --- Traffic Simulation Engine ---
+traci>=1.18.0
+sumolib>=1.18.0
+libsumo>=1.18.0
+
+# --- Data & Scientific Computing ---
+numpy>=1.26.0
+pandas>=2.0.0
+matplotlib>=3.7.0
