@@ -5,8 +5,9 @@ import gymnasium as gym
 from gymnasium import spaces
 from stable_baselines3 import PPO
 from stable_baselines3.common.callbacks import CheckpointCallback
+from stable_baselines3.common.vec_env import SubprocVecEnv, VecNormalize
 
-# Configuration des chemins pour importer votre wrapper multi-agent, Walid
+# Configuration des chemins
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 ROOT_DIR = os.path.abspath(os.path.join(SCRIPT_DIR, "../../"))
 sys.path.append(SCRIPT_DIR)
@@ -20,31 +21,18 @@ LOG_DIR = os.path.join(ROOT_DIR, "tensorboard_logs")
 os.makedirs(MODEL_DIR, exist_ok=True)
 os.makedirs(LOG_DIR, exist_ok=True)
 
-
 class CentralizedTrafficEnvWrapper(gym.Env):
-    """
-    Objectif : Pont d'encapsulation pour rendre l'environnement multi-agent 
-    compatible à 100% avec Stable-Baselines3 sans double-connexion.
-    """
     def __init__(self, base_env):
         super().__init__()
         self.base_env = base_env
         self.tls_ids = base_env.tls_ids
         
-        print(f"Walid, initialisation du pont Gymnasium pour les feux : {self.tls_ids}")
-        
-        # Reset d'essai pour récupérer dynamiquement la taille des états de SUMO
+        # Reset d'essai pour définir les espaces
         initial_states = self.base_env.reset()
         total_obs_dim = sum([len(state) for state in initial_states.values()])
-        
-        # CRUCIAL : On ferme immédiatement la connexion d'essai pour laisser 
-        # le champ libre au reset d'entraînement de Stable-Baselines3 !
         self.base_env.close()
         
-        # Espace d'observation et d'actions combiné
-        self.observation_space = spaces.Box(
-            low=-np.inf, high=np.inf, shape=(total_obs_dim,), dtype=np.float32
-        )
+        self.observation_space = spaces.Box(low=-np.inf, high=np.inf, shape=(total_obs_dim,), dtype=np.float32)
         self.action_space = spaces.MultiDiscrete([2] * len(self.tls_ids))
         
     def _flatten_obs(self, states_dict):
@@ -56,12 +44,11 @@ class CentralizedTrafficEnvWrapper(gym.Env):
         return self._flatten_obs(states_dict), {}
 
     def step(self, action_array):
-        # Traduction du vecteur d'actions vers le dictionnaire d'agents
         action_dict = {self.tls_ids[i]: action_array[i] for i in range(len(self.tls_ids))}
         next_states_dict, rewards_dict, terminateds, info = self.base_env.step(action_dict)
         
         obs = self._flatten_obs(next_states_dict)
-        total_reward = float(sum(rewards_dict.values())) # Récompense collaborative
+        total_reward = float(sum(rewards_dict.values()))
         terminated = terminateds["__all__"]
         truncated = False
         
@@ -70,54 +57,53 @@ class CentralizedTrafficEnvWrapper(gym.Env):
     def close(self):
         self.base_env.close()
 
+def make_env(rank):
+    def _init():
+        env = MultiAgentTrafficEnv(sumocfg_path=CONFIG_PATH, tls_ids=["B0", "C0"], gui=False)
+        # Injection du rank pour isoler les ports TraCI de chaque worker
+        env.rank = rank 
+        return CentralizedTrafficEnvWrapper(env)
+    return _init
 
 if __name__ == "__main__":
-    print("--- Running MARL Training Optimized Context on: CPU ---")
-
-    # 1. Instanciation de l'environnement de base SUMO ciblant B0 et C0
-    base_marl_env = MultiAgentTrafficEnv(
-        sumocfg_path=CONFIG_PATH,
-        tls_ids=["B0", "C0"],  
-        gui=False
-    )
-
-    # 2. Emballage protecteur
-    env = CentralizedTrafficEnvWrapper(base_marl_env)
+    print("--- Running CTCE Training (Parallel PPO Boulevard) ---")
+    
+    num_cpu = 4
+    raw_env = SubprocVecEnv([make_env(i) for i in range(num_cpu)])
+    
+    env = VecNormalize(raw_env, norm_obs=True, norm_reward=True, clip_obs=10.0, clip_reward=50.0)
 
     checkpoint_cb = CheckpointCallback(
-        save_freq=10_000,
-        save_path=MODEL_DIR,
-        name_prefix="ppo_marl_vague_verte_ckpt",
-        verbose=1,
+        save_freq=50_000, 
+        save_path=MODEL_DIR, 
+        name_prefix="ppo_boulevard_centralized_ckpt"
     )
 
-    # 3. Modèle PPO unifié pour la synchronisation
     model = PPO(
         "MlpPolicy",
         env,
         verbose=1,
         learning_rate=3e-4,
-        n_steps=2048,      
-        batch_size=64,    
+        n_steps=512,
+        batch_size=256,
         n_epochs=10,
         gamma=0.99,
         tensorboard_log=LOG_DIR,
-        device="cpu",  
+        device="cpu"
     )
 
-    # ✅ Correction Walid : Remplacement de l'émoji fusée pour éviter le crash cp1252
-    print("[INFO] Lancement de l'apprentissage collaboratif...")
+    print("[INFO] Lancement de l'apprentissage parallèle...")
     model.learn(
-        total_timesteps=100_000,
+        total_timesteps=2_000_000,
         progress_bar=True,
-        tb_log_name="ppo_marl_vague_verte",
+        tb_log_name="ppo_centralized_boulevard_parallel",
         callback=checkpoint_cb,
     )
 
-    final_model_path = os.path.join(MODEL_DIR, "ppo_marl_vague_verte_final")
+    final_model_path = os.path.join(MODEL_DIR,"ppo_boulevard_centralized_2M_final")
     model.save(final_model_path)
+
+    env.save(os.path.join(MODEL_DIR,"ppo_boulevard_centralized_2M_vecnorm.pkl"))
     
-    # ✅ Correction Walid : Remplacement de l'émoji de validation
-    print(f"[SUCCESS] Modele sauvegarde avec succes : {final_model_path}.zip")
-    
+    print("[SUCCESS] Modèle et normaliseur sauvegardés.")
     env.close()
