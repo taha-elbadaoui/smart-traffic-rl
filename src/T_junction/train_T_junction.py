@@ -16,12 +16,12 @@ LOG_DIR = os.path.join(ROOT_DIR, "tensorboard_logs")
 os.makedirs(MODEL_DIR, exist_ok=True)
 os.makedirs(LOG_DIR, exist_ok=True)
 
-device = "cuda" if torch.cuda.is_available() else "cpu"
+device = "cpu"
 print(f"--- Running on: {device.upper()} ---")
 
 def make_env(rank, seed=0):
     def _init():
-        env = TJunctionEnv(CONFIG_PATH, use_gui=False)
+        env = TJunctionEnv(CONFIG_PATH, use_gui=False, env_rank=rank)
         env.reset(seed=seed + rank)
         return env
     return _init
