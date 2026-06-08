@@ -1,6 +1,7 @@
 import time
 import argparse
 import os
+import sys  # Added for strict termination handling
 from stable_baselines3 import PPO                                   
 from stable_baselines3.common.vec_env import DummyVecEnv, VecNormalize
 from wrapper_crossroad import CrossroadEnv
@@ -12,7 +13,6 @@ CONFIG_PATH = os.path.join(ROOT_DIR, "envs/crossroad/env.sumocfg")
 MODEL_DIR = os.path.join(ROOT_DIR, "models")
 
 parser = argparse.ArgumentParser(description="Crossroad PPO Evaluation (GUI Mode)")
-# Upgraded: Added explicit choices to select between your 500k and 2M checkpoints cleanly
 parser.add_argument(
     "--mode",
     type=str,
@@ -40,15 +40,21 @@ print(f"Loading evaluation target model configuration: {model_name}")
 
 raw_env = DummyVecEnv([lambda: CrossroadEnv(CONFIG_PATH, use_gui=True)])
 
-if args.mode != "random" and norm_path and os.path.exists(norm_path):
+# Strict structural validation block to prevent unnormalized observation pass-throughs
+if args.mode != "random":
+    if not norm_path or not os.path.exists(norm_path):
+        print(f"\n❌ CRITICAL ERROR: Normalizer file not found at {os.path.abspath(norm_path)}")
+        print("Evaluation aborted. Cannot feed unnormalized state vectors into a trained policy.")
+        raw_env.close()
+        sys.exit(1)
+        
     env = VecNormalize.load(norm_path, raw_env)
     env.training = False      
     env.norm_reward = False   
-    print(f"VecNormalize stats loaded successfully from {norm_path}")
+    print(f"✅ VecNormalize stats loaded successfully from {norm_path}")
 else:
     env = raw_env
-    if args.mode != "random":
-        print("Warning: normalizer file not found — running without obs normalisation.")
+    print("🎲 Running untrained baseline without observation normalization.")
 
 try:
     model = PPO.load(model_path, env=env)   
@@ -57,7 +63,7 @@ except Exception as e:
     print(f"❌ Could not load model at {os.path.abspath(model_path)}.zip")
     print(f"   Error: {e}")
     env.close()
-    exit(1)
+    sys.exit(1)
 
 obs = env.reset()
 done = False
