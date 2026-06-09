@@ -12,19 +12,16 @@ YELLOW_PHASE_MAP = {0: 1, 2: 3}
 class TJunctionEnv(gym.Env):
     MAX_EPISODE_STEPS = 3600
 
-    class TJunctionEnv(gym.Env):
-    MAX_EPISODE_STEPS = 3600
-
     def __init__(self, sumocfg_file, use_gui=False, env_rank=0):
         super().__init__()
         self.sumocfg_file = os.path.abspath(sumocfg_file)
         self.use_gui = use_gui
         self.label = f"env_{uuid.uuid4().hex}"
         self.conn = None
-        self.env_rank = env_rank # Added to handle ports
+        self.env_rank = env_rank 
 
         self.max_cars = 15.0
-        self.step_length = 5   # Duct-tape: Allow the agent to react faster
+        self.step_length = 5   
         self.yellow_time = 3
         self.green_time = self.step_length - self.yellow_time 
 
@@ -39,14 +36,12 @@ class TJunctionEnv(gym.Env):
         self.incoming_edges = ["edge_N", "edge_E"]
         self.current_step = 0
 
-    # DELETE THE ENTIRE _get_free_port(self) FUNCTION HERE
-
-    """def _get_free_port(self):
+    def _get_free_port(self):
         """Dynamically finds a free OS port to prevent VecEnv collisions."""
         with closing(socket.socket(socket.AF_INET, socket.SOCK_STREAM)) as s:
             s.bind(('', 0))
             s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-            return s.getsockname()[1]"""
+            return s.getsockname()[1]
 
     def _get_queue_lengths(self):
         return [self.conn.edge.getLastStepHaltingNumber(e) for e in self.incoming_edges]
@@ -70,10 +65,8 @@ class TJunctionEnv(gym.Env):
         total_waiting = sum(queues)
 
         base_penalty = -(total_waiting / self.max_cars)
-        
         max_queue = max(queues)
         starvation_penalty = -(max_queue / self.max_cars)
-
         imbalance_penalty = -(float(np.std(queues)) / self.max_cars)
 
         return (1.0 * base_penalty) + (2.0 * starvation_penalty) + (0.5 * imbalance_penalty)
@@ -87,6 +80,7 @@ class TJunctionEnv(gym.Env):
 
         guardrail_penalty = 0.0
 
+        # Guardrails: Forcing phase state based on constraints
         if target_phase != current_phase and self.current_phase_duration < self.min_green_time:
             target_phase = current_phase
             guardrail_penalty -= 5.0  
@@ -100,7 +94,7 @@ class TJunctionEnv(gym.Env):
         switching_penalty = 0.0
 
         if current_phase != target_phase:
-            switching_penalty = -1.0 # Keep this flat. Do not scale it.
+            switching_penalty = -1.0 
 
             yellow_phase = YELLOW_PHASE_MAP[current_phase]
             self.conn.trafficlight.setPhase(self.ts_id, yellow_phase)
