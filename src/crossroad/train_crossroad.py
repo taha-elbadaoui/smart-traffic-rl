@@ -2,7 +2,7 @@ import os
 import argparse
 from stable_baselines3 import PPO
 from stable_baselines3.common.vec_env import SubprocVecEnv, VecNormalize
-from stable_baselines3.common.callbacks import CheckpointCallback
+from stable_baselines3.common.callbacks import CheckpointCallback, EvalCallback
 from wrapper_crossroad import CrossroadEnv
 
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -15,11 +15,15 @@ LOG_DIR = os.path.join(ROOT_DIR, "tensorboard_logs")
 os.makedirs(MODEL_DIR, exist_ok=True)
 os.makedirs(LOG_DIR, exist_ok=True)
 
+# Force immediate log flushes onto the disk for active TensorBoard streams
+os.environ["TENSORBOARD_BINARY_FLUSH_SECONDS"] = "5"
+
 print("--- Running PPO Policy execution optimized context on: CPU ---")
 
-def make_env(rank, seed=0):
+def make_env(rank, seed=0, use_gui=False):
     def _init():
-        env = CrossroadEnv(CONFIG_PATH, use_gui=False, rank=rank)
+        # Match wrapper initialization parameters
+        env = CrossroadEnv(CONFIG_PATH, use_gui=use_gui, rank=rank)
         env.reset(seed=seed + rank)
         return env
     return _init
@@ -45,11 +49,33 @@ if __name__ == "__main__":
             clip_reward=50.0,
         )
 
+        # 1. Standard Checkpoint Callback
         checkpoint_cb = CheckpointCallback(
             save_freq=100_000 // args.num_cpu,
             save_path=MODEL_DIR,
             name_prefix="ppo_crossroad_ckpt",
             verbose=1,
+        )
+
+        # 2. Forced Evaluation Callback for Real-Time TensorBoard Scaling Records
+        print("📊 Configuring isolated Evaluation Environment for Crossroad 'eval/' folder...")
+        eval_vec_env = SubprocVecEnv([make_env(rank=999, seed=1337, use_gui=False)])
+        
+        eval_env = VecNormalize(
+            eval_vec_env,
+            norm_obs=True,
+            norm_reward=False, # Maintain real evaluation step metrics intact
+            clip_obs=10.0,
+        )
+
+        eval_cb = EvalCallback(
+            eval_env,
+            best_model_save_path=os.path.join(MODEL_DIR, "best_crossroad_model"),
+            log_path=LOG_DIR,
+            eval_freq=max(1000, 10_000 // args.num_cpu), # Evaluates every 10k total global steps across all workers
+            deterministic=True,
+            render=False,
+            warn=False
         )
 
         model = PPO(
@@ -74,8 +100,8 @@ if __name__ == "__main__":
         model.learn(
             total_timesteps=2_000_000, 
             progress_bar=True,
-            tb_log_name="ppo_crossroad_2M", 
-            callback=checkpoint_cb,
+            tb_log_name="ppo_crossroad_eval_forced", 
+            callback=[checkpoint_cb, eval_cb],
         )
 
         # Update these strings to isolate the 2M outputs
@@ -85,10 +111,12 @@ if __name__ == "__main__":
 
         norm_path = os.path.join(MODEL_DIR, "ppo_crossroad_2M_vecnorm.pkl")
         env.save(norm_path)
-        print(f"Model saved:      {model_path}.zip")
-        print(f"Normalizer saved: {norm_path}")
-
         
+        eval_env.close()
+        env.close()
+        print(f"✅ Model saved:      {model_path}.zip")
+        print(f"✅ Normalizer saved: {norm_path}")
+
     else:
         print("Creating untrained random baseline model...")
         env = CrossroadEnv(CONFIG_PATH, use_gui=False, rank=0)
