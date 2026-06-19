@@ -324,6 +324,35 @@ Metrics collected per run: mean **waiting time**, **time loss**, **travel
 time**, completed-trip **throughput**, and mean / max **queue length** — all
 measured identically across controllers for a fair comparison.
 
+### 👀 Watch it live in `sumo-gui`
+
+The benchmark runs headless for speed. To actually *see* a strategy work, replay
+a single scenario in the SUMO GUI with `watch.py`:
+
+```bash
+# Watch the trained policy handle a rush-hour pattern
+python src/benchmark/watch.py --controller ppo --regime rush --seed 0
+
+# Watch a conventional fixed-time light on the SAME exact traffic
+python src/benchmark/watch.py --controller fixed_time --regime rush --seed 0
+
+# Options
+#   --controller {ppo,fixed_time,random}   which strategy to watch  (default ppo)
+#   --regime {normal,rush,ew_rush}         traffic pattern          (default rush)
+#   --seed N                               which traffic "day"      (default 0)
+#   --model {2M,500k}                      trained model for ppo    (default 2M)
+#   --hold N                               fixed-time green length  (default 2)
+#   --delay MS                             playback speed, bigger = slower (default 120)
+```
+
+The window opens, **auto-plays**, and closes at the end, printing a summary
+(completed trips, mean wait, mean / max queue).
+
+> **The trick:** use the **same `--regime` and `--seed`** for both controllers.
+> Because traffic is seed-controlled, you'll be watching each strategy solve the
+> *identical* cars — so any visible difference (shorter queues, fewer stops) is
+> purely down to the controller.
+
 ---
 
 ## 📊 Monitoring Training
