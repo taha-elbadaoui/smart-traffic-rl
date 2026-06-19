@@ -21,7 +21,7 @@ class CrossroadEnv(gym.Env):
 
     def __init__(self, sumocfg_file, use_gui=False, rank=0,
                  scenario=None, traffic_seed=None, traffic_intensity=1.0,
-                 tripinfo_path=None, max_episode_steps=None):
+                 tripinfo_path=None, max_episode_steps=None, extra_sumo_args=None):
         super().__init__()
         self.sumocfg_file = os.path.abspath(sumocfg_file)
         self.use_gui = use_gui
@@ -35,6 +35,7 @@ class CrossroadEnv(gym.Env):
         self.traffic_seed = traffic_seed         # set -> reproducible traffic (uses SUMO --seed)
         self.traffic_intensity = traffic_intensity
         self.tripinfo_path = tripinfo_path       # set -> SUMO writes per-trip stats here
+        self.extra_sumo_args = extra_sumo_args or []  # e.g. GUI auto-play / delay flags
         self.max_episode_steps = max_episode_steps if max_episode_steps is not None else self.MAX_EPISODE_STEPS
 
         self.max_cars = 50.0
@@ -203,6 +204,9 @@ class CrossroadEnv(gym.Env):
         # Optional per-trip statistics output (consumed by the benchmark lab).
         if self.tripinfo_path is not None:
             sumo_args += ["--tripinfo-output", self.tripinfo_path]
+
+        # Optional extra flags (e.g. sumo-gui auto-play / step delay for watching).
+        sumo_args += self.extra_sumo_args
 
         if self.use_gui or not LIBSUMO_AVAILABLE:
             binary = "sumo-gui" if self.use_gui else "sumo"
