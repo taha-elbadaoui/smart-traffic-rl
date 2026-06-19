@@ -73,10 +73,16 @@ class MultiAgentTrafficEnv:
     def _cache_controlled_lanes(self):
         # Resolve the (static) controlled lanes once and subscribe to their halting
         # counts, so the per-sim-step hot loop never calls getControlledLanes again.
+        # Pedestrian sidewalks / crossings are excluded so the observation only
+        # reflects vehicle queues (and stays dimensionally identical to the
+        # networks without crossings).
         for tls_id in self.tls_ids:
-            self.controlled_lanes[tls_id] = list(dict.fromkeys(
-                self.conn.trafficlight.getControlledLanes(tls_id)
-            ))
+            lanes = []
+            for lane in dict.fromkeys(self.conn.trafficlight.getControlledLanes(tls_id)):
+                allowed = self.conn.lane.getAllowed(lane)
+                if not allowed or "passenger" in allowed:
+                    lanes.append(lane)
+            self.controlled_lanes[tls_id] = lanes
         for lane in {l for lanes in self.controlled_lanes.values() for l in lanes}:
             self.conn.lane.subscribe(lane, [tc.LAST_STEP_VEHICLE_HALTING_NUMBER])
 

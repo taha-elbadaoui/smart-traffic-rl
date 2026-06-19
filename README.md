@@ -357,29 +357,41 @@ The window opens, **auto-plays**, and closes at the end, printing a summary
 
 ## 🏙️ Realistic Visualization
 
-Every environment ships with a shared GUI theme (`envs/gui_settings.xml`) and a
-procedurally generated "city" of building blocks and parks
-(`envs/<env>/env.poly.xml`) so the bare schematic networks render as a real
-neighbourhood: dark roads with lane markings, car-shaped coloured vehicles, and
-surrounding buildings/greenery.
+The networks were rebuilt to look like real neighbourhoods rather than bare
+schematics. Each environment combines three layers:
+
+1. **Realistic road networks** — every junction has **sidewalks** and
+   **pedestrian crossings (zebra)** in addition to the dark, lane-marked roads.
+2. **A procedural "city"** of building blocks and parks
+   (`envs/<env>/env.poly.xml`) tiled around the roads.
+3. **A shared GUI theme** (`envs/gui_settings.xml`) — car-shaped coloured
+   vehicles, soft background, watchable playback.
 
 ![Crossroad rendered in sumo-gui](docs/preview_crossroad.png)
 
-The decorations are **GUI-only** — they are loaded solely when a window is open
-(`evaluate_*`, `watch.py`) and are kept out of the headless `libsumo` training
-path, so simulation throughput is unaffected. They are also purely cosmetic
-(polygons + view settings): the road network, traffic lights, observations and
-trained models are untouched.
+The road rebuild was done with `tools/build_realistic_net.py`, which adds
+sidewalks and crossings **while preserving the existing traffic-light phase
+structure** — so the RL wrappers, observation spaces and trained models keep
+working unchanged (crossings are kept red since the simulation has no
+pedestrians):
 
-Regenerate the city for any network (e.g. after editing it):
+```bash
+python tools/build_realistic_net.py envs/crossroad/env.net.xml
+#   --sidewalk-width W   sidewalk width in metres (default 2.0)
+#   --keep-source        also dump the editable plain-XML source into the env
+```
+
+The **city polygons** are GUI-only (loaded by `evaluate_*` / `watch.py`, never in
+the headless `libsumo` training path, so training throughput is unaffected) and
+are purely decorative. Regenerate them for any network with:
 
 ```bash
 python tools/decorate_network.py envs/crossroad/env.net.xml envs/crossroad/env.poly.xml
 #   --pitch / --footprint / --clearance  tune block spacing, size, road margin
 ```
 
-To revert an environment to plain SUMO visuals, delete the `<gui_only>` block
-from its `.sumocfg`.
+To revert an environment's visuals, delete the `<gui_only>` block from its
+`.sumocfg`.
 
 ---
 
