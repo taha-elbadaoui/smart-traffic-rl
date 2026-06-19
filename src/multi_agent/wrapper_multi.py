@@ -1,5 +1,6 @@
 import os
 import sys
+import math
 import numpy as np
 
 if 'SUMO_HOME' in os.environ:
@@ -9,6 +10,7 @@ else:
     sys.exit("Veuillez déclarer la variable d'environnement 'SUMO_HOME'")
 
 import traci
+import traci.constants as tc
 
 LIBSUMO_AVAILABLE = False
 try:
@@ -39,10 +41,12 @@ class MultiAgentTrafficEnv:
         self.max_green_time = 60.0
         
         self.phase_durations = {tls_id: 0 for tls_id in self.tls_ids}
-        
+        # Controlled lanes are static per network; cached at reset (see _cache_controlled_lanes).
+        self.controlled_lanes = {tls_id: [] for tls_id in self.tls_ids}
+
     def reset(self):
         sumo_args = ["-c", self.sumocfg_path, "--no-warnings", "--no-step-log", "--random"]
-        
+
         if self.use_libsumo:
             libsumo.start(["sumo"] + sumo_args)
             self.conn = libsumo
@@ -50,22 +54,37 @@ class MultiAgentTrafficEnv:
             binary = "sumo-gui" if self.gui else "sumo"
             traci.start([binary] + sumo_args)
             self.conn = traci
-        
+
         self.phase_durations = {tls_id: 0 for tls_id in self.tls_ids}
-        
+        self._cache_controlled_lanes()
+
         states = {}
         for tls_id in self.tls_ids:
             states[tls_id] = self._get_state(tls_id)
         return states
 
+    def _cache_controlled_lanes(self):
+        # Resolve the (static) controlled lanes once and subscribe to their halting
+        # counts, so the per-sim-step hot loop never calls getControlledLanes again.
+        for tls_id in self.tls_ids:
+            self.controlled_lanes[tls_id] = list(dict.fromkeys(
+                self.conn.trafficlight.getControlledLanes(tls_id)
+            ))
+        for lane in {l for lanes in self.controlled_lanes.values() for l in lanes}:
+            self.conn.lane.subscribe(lane, [tc.LAST_STEP_VEHICLE_HALTING_NUMBER])
+
     def _get_queue_lengths(self, tls_id):
-        controlled_lanes = list(set(self.conn.trafficlight.getControlledLanes(tls_id)))
-        return [self.conn.lane.getLastStepHaltingNumber(lane) for lane in controlled_lanes]
+        lanes = self.controlled_lanes[tls_id]
+        results = self.conn.lane.getAllSubscriptionResults()
+        if not results:
+            # Subscriptions only populate after the first simulation step (e.g. at reset).
+            return [self.conn.lane.getLastStepHaltingNumber(lane) for lane in lanes]
+        return [int(results[lane][tc.LAST_STEP_VEHICLE_HALTING_NUMBER]) for lane in lanes]
 
     def _get_state(self, tls_id):
         queues = self._get_queue_lengths(tls_id)
-        norm_queues = [float(np.tanh(q / self.max_cars)) for q in queues]
-        
+        norm_queues = [math.tanh(q / self.max_cars) for q in queues]
+
         current_phase = self.conn.trafficlight.getPhase(tls_id)
         if current_phase not in YELLOW_PHASE_MAP:
             current_phase = 0 if current_phase == 1 else 2
@@ -158,13 +177,18 @@ class MultiAgentTrafficEnv:
         queues = self._get_queue_lengths(tls_id)
         if not queues:
             return 0.0
-            
+
+        n = len(queues)
         total_waiting = sum(queues)
         max_queue = max(queues)
-        
+
+        # Manual std avoids numpy overhead in the per-sim-step hot loop.
+        mean = total_waiting / n
+        std = math.sqrt(sum((q - mean) ** 2 for q in queues) / n)
+
         base_penalty = -(total_waiting / self.max_cars)
         starvation_penalty = -(max_queue / self.max_cars)
-        imbalance_penalty = -(float(np.std(queues)) / self.max_cars)
+        imbalance_penalty = -(std / self.max_cars)
 
         return (1.0 * base_penalty) + (2.0 * starvation_penalty) + (0.5 * imbalance_penalty)
 

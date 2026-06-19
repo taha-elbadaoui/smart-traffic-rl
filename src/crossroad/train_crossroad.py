@@ -67,6 +67,10 @@ if __name__ == "__main__":
             norm_reward=False, # Maintain real evaluation step metrics intact
             clip_obs=10.0,
         )
+        # Share the live training normalizer (mutated in place) and freeze the eval
+        # env's own updates, so eval/ observations are normalized with trained stats.
+        eval_env.obs_rms = env.obs_rms
+        eval_env.training = False
 
         eval_cb = EvalCallback(
             eval_env,

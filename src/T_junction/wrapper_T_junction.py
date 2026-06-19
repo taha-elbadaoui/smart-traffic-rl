@@ -1,11 +1,18 @@
 import gymnasium as gym
 from gymnasium import spaces
 import numpy as np
+import math
 import traci
+import traci.constants as tc
 import uuid
 import os
-import socket
-from contextlib import closing
+
+LIBSUMO_AVAILABLE = False
+try:
+    import libsumo
+    LIBSUMO_AVAILABLE = True
+except ImportError:
+    pass
 
 YELLOW_PHASE_MAP = {0: 1, 2: 3}
 
@@ -36,19 +43,17 @@ class TJunctionEnv(gym.Env):
         self.incoming_edges = ["edge_N", "edge_E"]
         self.current_step = 0
 
-    def _get_free_port(self):
-        """Dynamically finds a free OS port to prevent VecEnv collisions."""
-        with closing(socket.socket(socket.AF_INET, socket.SOCK_STREAM)) as s:
-            s.bind(('', 0))
-            s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-            return s.getsockname()[1]
-
     def _get_queue_lengths(self):
-        return [self.conn.edge.getLastStepHaltingNumber(e) for e in self.incoming_edges]
+        # One batched fetch for every subscribed edge instead of N individual FFI calls.
+        results = self.conn.edge.getAllSubscriptionResults()
+        if not results:
+            # Subscriptions only populate after the first simulation step (e.g. at reset).
+            return [self.conn.edge.getLastStepHaltingNumber(e) for e in self.incoming_edges]
+        return [int(results[e][tc.LAST_STEP_VEHICLE_HALTING_NUMBER]) for e in self.incoming_edges]
 
     def _get_state(self):
         queues = self._get_queue_lengths()
-        norm_queues = [float(np.tanh(q / self.max_cars)) for q in queues]
+        norm_queues = [math.tanh(q / self.max_cars) for q in queues]
 
         current_phase = self.conn.trafficlight.getPhase(self.ts_id)
         if current_phase not in YELLOW_PHASE_MAP:
@@ -62,12 +67,17 @@ class TJunctionEnv(gym.Env):
 
     def _compute_reward(self):
         queues = self._get_queue_lengths()
+        n = len(queues)
         total_waiting = sum(queues)
+        max_queue = max(queues)
+
+        # Manual std (small list) avoids numpy overhead in the per-sim-step hot loop.
+        mean = total_waiting / n
+        std = math.sqrt(sum((q - mean) ** 2 for q in queues) / n)
 
         base_penalty = -(total_waiting / self.max_cars)
-        max_queue = max(queues)
         starvation_penalty = -(max_queue / self.max_cars)
-        imbalance_penalty = -(float(np.std(queues)) / self.max_cars)
+        imbalance_penalty = -(std / self.max_cars)
 
         return (1.0 * base_penalty) + (2.0 * starvation_penalty) + (0.5 * imbalance_penalty)
 
@@ -149,25 +159,33 @@ class TJunctionEnv(gym.Env):
                 pass
             self.conn = None
 
-        binary = "sumo-gui" if self.use_gui else "sumo"
-        port = self._get_free_port()
-        
-        traci.start(
-            [binary, "-c", self.sumocfg_file,
-             "--no-warnings", "--start", "--no-step-log", "--random"],
-            label=self.label,
-            port=port
-        )
+        sumo_args = [
+            "-c", self.sumocfg_file,
+            "--no-warnings", "--start", "--no-step-log", "--random",
+        ]
 
-        self.conn = traci.getConnection(self.label)
+        if self.use_gui or not LIBSUMO_AVAILABLE:
+            # GUI or no libsumo: fall back to socket-based TraCI.
+            binary = "sumo-gui" if self.use_gui else "sumo"
+            traci.start([binary] + sumo_args, label=self.label)
+            self.conn = traci.getConnection(self.label)
+        else:
+            # In-process libsumo: each SubprocVecEnv worker has its own instance,
+            # so no ports/sockets are needed (much faster than TraCI).
+            libsumo.start(["sumo"] + sumo_args)
+            self.conn = libsumo
+
+        # Subscribe once per episode so every step is a single batched read.
+        for e in self.incoming_edges:
+            self.conn.edge.subscribe(e, [tc.LAST_STEP_VEHICLE_HALTING_NUMBER])
+
         state, _ = self._get_state()
         return state, {}
 
     def close(self):
         if self.conn:
             try:
-                traci.switch(self.label)
-                traci.close()
+                self.conn.close()
             except Exception:
                 pass
             self.conn = None

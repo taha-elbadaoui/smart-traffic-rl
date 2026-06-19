@@ -1,11 +1,12 @@
 import gymnasium as gym
 from gymnasium import spaces
 import numpy as np
+import math
 import uuid
 import os
-import time
 
 import traci
+import traci.constants as tc
 LIBSUMO_AVAILABLE = False
 try:
     import libsumo
@@ -48,11 +49,16 @@ class CrossroadEnv(gym.Env):
         self.route_file = os.path.join(self.config_dir, self.worker_route_filename)
 
     def _get_queue_lengths(self):
-        return [self.conn.edge.getLastStepHaltingNumber(e) for e in self.edges]
+        # One batched fetch for every subscribed edge instead of N individual FFI calls.
+        results = self.conn.edge.getAllSubscriptionResults()
+        if not results:
+            # Subscriptions only populate after the first simulation step (e.g. at reset).
+            return [self.conn.edge.getLastStepHaltingNumber(e) for e in self.edges]
+        return [int(results[e][tc.LAST_STEP_VEHICLE_HALTING_NUMBER]) for e in self.edges]
 
     def _get_state(self):
         queues = self._get_queue_lengths()
-        norm_queues = [float(np.tanh(q / self.max_cars)) for q in queues]
+        norm_queues = [math.tanh(q / self.max_cars) for q in queues]
 
         current_phase = self.conn.trafficlight.getPhase(self.ts_id)
         if current_phase not in YELLOW_PHASE_MAP:
@@ -66,14 +72,17 @@ class CrossroadEnv(gym.Env):
 
     def _compute_reward(self):
         queues = self._get_queue_lengths()
+        n = len(queues)
         total_waiting = sum(queues)
+        max_queue = max(queues)
+
+        # Manual std (4 elements) avoids numpy overhead in the per-sim-step hot loop.
+        mean = total_waiting / n
+        std = math.sqrt(sum((q - mean) ** 2 for q in queues) / n)
 
         base_penalty = -(total_waiting / self.max_cars)
-        
-        max_queue = max(queues)
         starvation_penalty = -(max_queue / self.max_cars)
-
-        imbalance_penalty = -(float(np.std(queues)) / self.max_cars)
+        imbalance_penalty = -(std / self.max_cars)
 
         return (1.0 * base_penalty) + (2.0 * starvation_penalty) + (0.5 * imbalance_penalty)
 
@@ -176,10 +185,14 @@ class CrossroadEnv(gym.Env):
             traci.start([binary] + sumo_args, label=self.label)
             self.conn = traci.getConnection(self.label)
         else:
-            # Parallel worker thread context isolation safety sleep
-            time.sleep(self.rank * 0.15)
+            # Each SubprocVecEnv worker is its own process with its own in-process
+            # libsumo instance, so no port collision and no startup sleep is needed.
             libsumo.start(["sumo"] + sumo_args)
             self.conn = libsumo
+
+        # Subscribe once per episode so every step is a single batched read.
+        for e in self.edges:
+            self.conn.edge.subscribe(e, [tc.LAST_STEP_VEHICLE_HALTING_NUMBER])
 
         state, _ = self._get_state()
         return state, {}

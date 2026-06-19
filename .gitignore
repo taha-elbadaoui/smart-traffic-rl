@@ -8,6 +8,9 @@
 # (Keep your .net.xml and base .rou.xml manually)
 *.trips.xml
 *.rou.alt.xml
+# Per-worker route files generated at runtime by the traffic generators
+dynamic.rou.xml
+dynamic_worker_*.rou.xml
 
 # --- Python & Virtual Environments ---
 __pycache__/
