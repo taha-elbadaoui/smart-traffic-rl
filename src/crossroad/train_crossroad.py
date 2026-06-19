@@ -25,6 +25,16 @@ torch.set_num_threads(1)
 
 print("--- Running PPO Policy execution optimized context on: CPU ---")
 
+def linear_schedule(initial, final):
+    """Linear LR decay: `initial` at the start of training down to `final` at the end.
+
+    SB3 passes progress_remaining = 1.0 at the start and 0.0 at the end, so the
+    late updates use a tiny learning rate (fine-tuning instead of plateauing).
+    """
+    def schedule(progress_remaining):
+        return final + progress_remaining * (initial - final)
+    return schedule
+
 def make_env(rank, seed=0, use_gui=False):
     def _init():
         # Match wrapper initialization parameters
@@ -36,8 +46,6 @@ def make_env(rank, seed=0, use_gui=False):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Parallel PPO Training for Crossroad")
     parser.add_argument("--mode", type=str, choices=["train", "random"], default="train")
-    # G14 Tuning: Defaulting to 6 workers leaves 2 physical cores free for Windows and 
-    # lets the remaining 6 cores sustain maximum single-core Turbo clocks without overheating.
     parser.add_argument("--num_cpu", type=int, default=8)
     args = parser.parse_args()
 
@@ -91,7 +99,7 @@ if __name__ == "__main__":
             "MlpPolicy",
             env,
             verbose=1,
-            learning_rate=3e-4,
+            learning_rate=linear_schedule(3e-4, 1e-5),
             # G14 Tuning: Increased n_steps and batch_size dramatically to let the CPU 
             # run pure simulation steps uninterrupted without constantly pausing for policy updates.
             n_steps=4096,      
@@ -107,7 +115,7 @@ if __name__ == "__main__":
 
         # Ensure the learn block uses a separate tensorboard graph name
         model.learn(
-            total_timesteps=2_000_000, 
+            total_timesteps=1_000_000,
             progress_bar=True,
             tb_log_name="ppo_crossroad_eval_forced", 
             callback=[checkpoint_cb, eval_cb],
