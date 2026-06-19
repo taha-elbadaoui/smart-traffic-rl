@@ -19,6 +19,17 @@ NS_EDGES = {"in_N", "in_S"}
 EW_EDGES = {"in_W", "int_E"}
 SCENARIOS = ["balanced", "ns_rush", "ew_rush"]
 
+# Visual-only car palette: real car shape + distinct colours so the sumo-gui
+# view is easy to read. Physics are identical across types, so dynamics and
+# training are unaffected.
+CAR_TYPES = [
+    ("car_red",    "210,60,60"),
+    ("car_blue",   "60,110,210"),
+    ("car_white",  "235,235,235"),
+    ("car_yellow", "230,200,60"),
+    ("car_teal",   "60,190,180"),
+]
+
 
 def generate_dynamic_traffic(
     filepath: str,
@@ -50,9 +61,14 @@ def generate_dynamic_traffic(
     lines = [
         '<?xml version="1.0" encoding="UTF-8"?>',
         "<routes>",
-        '    <vType id="standard_car" vClass="passenger" '
-        'accel="2.6" decel="4.5" sigma="0.5" length="4.5" maxSpeed="15"/>',
     ]
+    # One vType per colour (same physics, just a different look in sumo-gui).
+    for type_id, color in CAR_TYPES:
+        lines.append(
+            f'    <vType id="{type_id}" vClass="passenger" guiShape="passenger" '
+            f'color="{color}" accel="2.6" decel="4.5" sigma="0.5" '
+            f'length="4.5" maxSpeed="15"/>'
+        )
 
     for i, (in_edge, out_edge) in enumerate(ROUTES):
         prob = p_base
@@ -65,10 +81,11 @@ def generate_dynamic_traffic(
         # Clamp into a sane probability range (allow heavier flows when intensity is high).
         prob = max(0.01, min(prob * rng.uniform(0.8, 1.2), 0.5))
 
+        car_type = CAR_TYPES[i % len(CAR_TYPES)][0]
         lines.append(
             f'    <flow id="flow_{i}" begin="0" end="{max_steps}" '
             f'probability="{prob:.3f}" from="{in_edge}" to="{out_edge}" '
-            f'type="standard_car" departLane="best" departSpeed="max"/>'
+            f'type="{car_type}" departLane="best" departSpeed="max"/>'
         )
 
     lines.append("</routes>")

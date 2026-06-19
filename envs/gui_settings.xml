@@ -1,0 +1,21 @@
+<viewsettings>
+    <!--
+      Shared "pretty" look for every environment (T-junction, crossroad,
+      boulevard). Cars are drawn as real car shapes, slightly enlarged, with
+      blinkers; the background is a soft light grey; playback is slowed to a
+      watchable ~100 ms per simulation step.
+
+      This file only affects sumo-gui (it is ignored by headless libsumo
+      training). To revert an environment to SUMO defaults, simply delete the
+      <gui_only> block from that env's .sumocfg.
+    -->
+    <scheme name="smart-traffic">
+        <background backgroundColor="238,242,247" showGrid="0"
+                    gridXSize="100.00" gridYSize="100.00"/>
+        <vehicles vehicleQuality="2" vehicleSize_minSize="2.50"
+                  vehicleSize_exaggeration="1.25" showBlinker="1"/>
+        <junctions junctionMode="0" drawShape="1"
+                   drawCrossingsAndWalkingareas="1"/>
+    </scheme>
+    <delay value="100"/>
+</viewsettings>
