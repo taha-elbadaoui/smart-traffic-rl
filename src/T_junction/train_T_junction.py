@@ -20,6 +20,9 @@ os.makedirs(LOG_DIR, exist_ok=True)
 os.environ["TENSORBOARD_BINARY_FLUSH_SECONDS"] = "5"
 
 device = "cpu"
+# Tiny MLP: one torch thread avoids the learner fighting the SUMO env workers
+# for CPU, which improves overall SubprocVecEnv throughput.
+torch.set_num_threads(1)
 print(f"--- Running on: {device.upper()} ---")
 
 def make_env(rank, seed=0, use_gui=False):

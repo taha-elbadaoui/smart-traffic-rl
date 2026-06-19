@@ -1,11 +1,17 @@
 import os
 import sys
+import argparse
 import numpy as np
+import torch
 import gymnasium as gym
 from gymnasium import spaces
 from stable_baselines3 import PPO
 from stable_baselines3.common.callbacks import CheckpointCallback
 from stable_baselines3.common.vec_env import SubprocVecEnv, VecNormalize
+
+# Tiny MLP: one torch thread avoids the learner fighting the SUMO env workers
+# for CPU, which improves overall SubprocVecEnv throughput.
+torch.set_num_threads(1)
 
 # Configuration des chemins
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -66,9 +72,14 @@ def make_env(rank):
     return _init
 
 if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description="Centralized PPO Training (Boulevard)")
+    parser.add_argument("--num_cpu", type=int, default=8,
+                        help="number of parallel SUMO environments")
+    args = parser.parse_args()
+
     print("--- Running CTCE Training (Parallel PPO Boulevard) ---")
-    
-    num_cpu = 4
+
+    num_cpu = args.num_cpu
     raw_env = SubprocVecEnv([make_env(i) for i in range(num_cpu)])
     
     env = VecNormalize(raw_env, norm_obs=True, norm_reward=True, clip_obs=10.0, clip_reward=50.0)

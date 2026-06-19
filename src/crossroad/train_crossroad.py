@@ -1,5 +1,6 @@
 import os
 import argparse
+import torch
 from stable_baselines3 import PPO
 from stable_baselines3.common.vec_env import SubprocVecEnv, VecNormalize
 from stable_baselines3.common.callbacks import CheckpointCallback, EvalCallback
@@ -18,6 +19,10 @@ os.makedirs(LOG_DIR, exist_ok=True)
 # Force immediate log flushes onto the disk for active TensorBoard streams
 os.environ["TENSORBOARD_BINARY_FLUSH_SECONDS"] = "5"
 
+# Tiny MLP: one torch thread avoids the learner fighting the SUMO env workers
+# for CPU, which improves overall SubprocVecEnv throughput.
+torch.set_num_threads(1)
+
 print("--- Running PPO Policy execution optimized context on: CPU ---")
 
 def make_env(rank, seed=0, use_gui=False):
@@ -33,7 +38,7 @@ if __name__ == "__main__":
     parser.add_argument("--mode", type=str, choices=["train", "random"], default="train")
     # G14 Tuning: Defaulting to 6 workers leaves 2 physical cores free for Windows and 
     # lets the remaining 6 cores sustain maximum single-core Turbo clocks without overheating.
-    parser.add_argument("--num_cpu", type=int, default=6)
+    parser.add_argument("--num_cpu", type=int, default=8)
     args = parser.parse_args()
 
     if args.mode == "train":
