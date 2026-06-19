@@ -19,13 +19,23 @@ YELLOW_PHASE_MAP = {0: 1, 2: 3}
 class CrossroadEnv(gym.Env):
     MAX_EPISODE_STEPS = 3600  
 
-    def __init__(self, sumocfg_file, use_gui=False, rank=0):
+    def __init__(self, sumocfg_file, use_gui=False, rank=0,
+                 scenario=None, traffic_seed=None, traffic_intensity=1.0,
+                 tripinfo_path=None, max_episode_steps=None):
         super().__init__()
         self.sumocfg_file = os.path.abspath(sumocfg_file)
         self.use_gui = use_gui
         self.rank = rank
         self.label = f"env_{uuid.uuid4().hex}"
         self.conn = None
+
+        # Optional controls used by the benchmark lab (training leaves these at
+        # their defaults, preserving the original fully-random behaviour).
+        self.scenario = scenario                 # None -> random scenario each reset
+        self.traffic_seed = traffic_seed         # set -> reproducible traffic (uses SUMO --seed)
+        self.traffic_intensity = traffic_intensity
+        self.tripinfo_path = tripinfo_path       # set -> SUMO writes per-trip stats here
+        self.max_episode_steps = max_episode_steps if max_episode_steps is not None else self.MAX_EPISODE_STEPS
 
         self.max_cars = 50.0
         self.step_length = 25   
@@ -146,7 +156,7 @@ class CrossroadEnv(gym.Env):
         )
 
         sim_done = self.conn.simulation.getMinExpectedNumber() <= 0
-        truncated = self.current_step >= self.MAX_EPISODE_STEPS
+        truncated = self.current_step >= self.max_episode_steps
         done = sim_done or truncated
 
         return state, reward, done, False, {}
@@ -159,7 +169,12 @@ class CrossroadEnv(gym.Env):
         # Create isolated files cleanly
         try:
             from traffic_generator import generate_dynamic_traffic
-            generate_dynamic_traffic(self.route_file)
+            generate_dynamic_traffic(
+                self.route_file,
+                scenario=self.scenario,
+                seed=self.traffic_seed,
+                intensity=self.traffic_intensity,
+            )
         except ImportError:
             pass
 
@@ -177,8 +192,17 @@ class CrossroadEnv(gym.Env):
             "--route-files", self.route_file,
             "--no-warnings",
             "--no-step-log",
-            "--random"
         ]
+
+        # Reproducible traffic for benchmarking uses a fixed seed; training uses --random.
+        if self.traffic_seed is not None:
+            sumo_args += ["--seed", str(self.traffic_seed)]
+        else:
+            sumo_args += ["--random"]
+
+        # Optional per-trip statistics output (consumed by the benchmark lab).
+        if self.tripinfo_path is not None:
+            sumo_args += ["--tripinfo-output", self.tripinfo_path]
 
         if self.use_gui or not LIBSUMO_AVAILABLE:
             binary = "sumo-gui" if self.use_gui else "sumo"
