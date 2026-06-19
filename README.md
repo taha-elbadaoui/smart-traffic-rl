@@ -355,6 +355,34 @@ The window opens, **auto-plays**, and closes at the end, printing a summary
 
 ---
 
+## 🏙️ Realistic Visualization
+
+Every environment ships with a shared GUI theme (`envs/gui_settings.xml`) and a
+procedurally generated "city" of building blocks and parks
+(`envs/<env>/env.poly.xml`) so the bare schematic networks render as a real
+neighbourhood: dark roads with lane markings, car-shaped coloured vehicles, and
+surrounding buildings/greenery.
+
+![Crossroad rendered in sumo-gui](docs/preview_crossroad.png)
+
+The decorations are **GUI-only** — they are loaded solely when a window is open
+(`evaluate_*`, `watch.py`) and are kept out of the headless `libsumo` training
+path, so simulation throughput is unaffected. They are also purely cosmetic
+(polygons + view settings): the road network, traffic lights, observations and
+trained models are untouched.
+
+Regenerate the city for any network (e.g. after editing it):
+
+```bash
+python tools/decorate_network.py envs/crossroad/env.net.xml envs/crossroad/env.poly.xml
+#   --pitch / --footprint / --clearance  tune block spacing, size, road margin
+```
+
+To revert an environment to plain SUMO visuals, delete the `<gui_only>` block
+from its `.sumocfg`.
+
+---
+
 ## 📊 Monitoring Training
 
 TensorBoard can be used to visualize PPO training metrics.

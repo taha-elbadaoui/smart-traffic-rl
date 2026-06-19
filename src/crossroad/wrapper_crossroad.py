@@ -208,6 +208,13 @@ class CrossroadEnv(gym.Env):
         # Optional extra flags (e.g. sumo-gui auto-play / step delay for watching).
         sumo_args += self.extra_sumo_args
 
+        # Decorative city polygons are loaded for the GUI only (kept out of the
+        # headless training path so simulation throughput is unaffected).
+        if self.use_gui:
+            poly = os.path.join(self.config_dir, "env.poly.xml")
+            if os.path.exists(poly):
+                sumo_args += ["--additional-files", poly]
+
         if self.use_gui or not LIBSUMO_AVAILABLE:
             binary = "sumo-gui" if self.use_gui else "sumo"
             traci.start([binary] + sumo_args, label=self.label)

@@ -1,21 +1,26 @@
 <viewsettings>
     <!--
-      Shared "pretty" look for every environment (T-junction, crossroad,
-      boulevard). Cars are drawn as real car shapes, slightly enlarged, with
-      blinkers; the background is a soft light grey; playback is slowed to a
-      watchable ~100 ms per simulation step.
+      Shared realistic look for every environment (T-junction, crossroad,
+      boulevard). Combined with the env.poly.xml "city" overlay this turns the
+      bare schematic networks into a neighbourhood: ground slab, building
+      blocks and parks around dark roads with lane markings, real car shapes,
+      and slowed, watchable playback.
 
-      This file only affects sumo-gui (it is ignored by headless libsumo
-      training). To revert an environment to SUMO defaults, simply delete the
-      <gui_only> block from that env's .sumocfg.
+      sumo-gui only — ignored by headless libsumo training. To revert an
+      environment, delete its <gui_only> block from the .sumocfg.
     -->
     <scheme name="smart-traffic">
-        <background backgroundColor="238,242,247" showGrid="0"
-                    gridXSize="100.00" gridYSize="100.00"/>
+        <background backgroundColor="223,226,221" showGrid="0"
+                   gridXSize="100.00" gridYSize="100.00"/>
+        <edges laneEdgeMode="0" scaleMode="0" laneShowBorders="1"
+               showLinkDecals="1" showLinkRules="1" showRails="1"
+               hideConnectors="0" widthExaggeration="1.00" minSize="1.00"
+               showDirection="0"/>
         <vehicles vehicleQuality="2" vehicleSize_minSize="2.50"
                   vehicleSize_exaggeration="1.25" showBlinker="1"/>
         <junctions junctionMode="0" drawShape="1"
                    drawCrossingsAndWalkingareas="1"/>
+        <polys polyName="0" polyType="0" polySize="0"/>
     </scheme>
     <delay value="100"/>
 </viewsettings>

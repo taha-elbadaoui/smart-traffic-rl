@@ -47,6 +47,13 @@ class MultiAgentTrafficEnv:
     def reset(self):
         sumo_args = ["-c", self.sumocfg_path, "--no-warnings", "--no-step-log", "--random"]
 
+        # Decorative city polygons are loaded for the GUI only (kept out of the
+        # headless training path so simulation throughput is unaffected).
+        if self.gui:
+            poly = os.path.join(os.path.dirname(self.sumocfg_path), "env.poly.xml")
+            if os.path.exists(poly):
+                sumo_args += ["--additional-files", poly]
+
         if self.use_libsumo:
             libsumo.start(["sumo"] + sumo_args)
             self.conn = libsumo

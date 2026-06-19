@@ -164,6 +164,13 @@ class TJunctionEnv(gym.Env):
             "--no-warnings", "--start", "--no-step-log", "--random",
         ]
 
+        # Decorative city polygons are loaded for the GUI only (kept out of the
+        # headless training path so simulation throughput is unaffected).
+        if self.use_gui:
+            poly = os.path.join(os.path.dirname(self.sumocfg_file), "env.poly.xml")
+            if os.path.exists(poly):
+                sumo_args += ["--additional-files", poly]
+
         if self.use_gui or not LIBSUMO_AVAILABLE:
             # GUI or no libsumo: fall back to socket-based TraCI.
             binary = "sumo-gui" if self.use_gui else "sumo"
