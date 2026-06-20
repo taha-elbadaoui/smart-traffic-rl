@@ -98,13 +98,15 @@ benchmarked against fixed-time and max-pressure. Synthetic envs archived in
 
 | Controller | Mean wait (s) | Mean time loss (s) | Mean travel (s) | Trips done | Notes |
 |-----------|--------------:|-------------------:|----------------:|-----------:|-------|
-| **fixed-time** (real signals) | **29.27** | **49.26** | **114.39** | 1995 | the bar to beat |
-| max-pressure | _todo_ | | | | classic adaptive baseline |
+| fixed-time (real signals) | 29.27 | 49.26 | 114.39 | 1995 | floor |
+| **max-pressure** | **6.46** | **24.69** | **90.28** | **2015** | **−78% wait vs fixed-time — the real bar** |
 | IPPO (shared param) | _todo_ | | | | learned baseline |
 | CoLight | _todo_ | | | | graph-attention (goal) |
 
-*Lower is better for wait / time loss / travel. Reproduce fixed-time with
-`python src/realcity/baselines.py`.*
+*Lower is better for wait / time loss / travel. Reproduce with
+`python src/realcity/baselines.py`. **Key finding:** classic max-pressure already
+beats the real fixed-time signals massively — so the meaningful research question
+is whether learned control (CoLight) can beat **max-pressure**, which is hard.*
 
 ### Legacy synthetic envs (for reference)
 
