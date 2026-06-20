@@ -23,6 +23,10 @@ The original three synthetic environments (T-junction, crossroad, boulevard) tha
 the first report was built on now live in [`legacy/`](legacy/README.md) and serve
 as small, controlled unit tests.
 
+> 📒 **Decisions & results are tracked in [`PROJECT_LOG.md`](PROJECT_LOG.md)** —
+> architecture choices (with rationale) and the benchmark table. Update it as the
+> project evolves.
+
 ## 📂 Repository structure
 
 ```text
