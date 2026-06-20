@@ -17,6 +17,7 @@ SUMOCFG = os.path.join(ROOT, "envs", "cologne8", "cologne8.sumocfg")
 BEGIN = 25200          # 07:00 — start of the TAPAS morning peak
 PEAK_SECONDS = 3600    # one hour of demand
 DELTA_TIME = 5         # seconds between agent decisions
+EXPECTED_TRIPS = 2046  # TAPAS trips in the demand; a good controller clears ~all of them
 
 
 def make_env(use_gui=False, num_seconds=PEAK_SECONDS, delta_time=DELTA_TIME,

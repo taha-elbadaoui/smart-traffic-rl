@@ -81,6 +81,15 @@ benchmarked against fixed-time and max-pressure. Synthetic envs archived in
   (it maximized throughput, not delay). Pressure is the proven objective.
 - **Status:** Active.
 
+### ADR-09 — Throughput-aware evaluation metric
+- **Date:** 2026-06-20
+- **Decision:** Score controllers with `time_loss + 1000·(1 − completed/expected)`,
+  not waiting time alone.
+- **Why:** A controller that gridlocks the network completes only the easy early
+  trips, so its tripinfo *average* looks artificially fast (survivorship bias). A
+  policy must **clear the demand** (≈2046 trips) to count as good.
+- **Status:** Active (used for IPPO/CoLight model selection).
+
 ### ADR-08 — Core model: CoLight (via an IPPO foundation)
 - **Date:** 2026-06-20
 - **Decision:** Target a **CoLight-style graph-attention** multi-agent policy;
@@ -100,7 +109,7 @@ benchmarked against fixed-time and max-pressure. Synthetic envs archived in
 |-----------|--------------:|-------------------:|----------------:|-----------:|-------|
 | fixed-time (real signals) | 29.27 | 49.26 | 114.39 | 1995 | floor |
 | **max-pressure** | **6.46** | **24.69** | **90.28** | **2015** | **−78% wait vs fixed-time — the real bar** |
-| IPPO (shared param) | _todo_ | | | | learned baseline |
+| IPPO (shared param) | _todo_ | | | | harness ready — run `python src/realcity/ippo.py` |
 | CoLight | _todo_ | | | | graph-attention (goal) |
 
 *Lower is better for wait / time loss / travel. Reproduce with
