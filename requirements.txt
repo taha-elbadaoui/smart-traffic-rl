@@ -3,10 +3,14 @@ gymnasium==0.29.1
 stable-baselines3==2.3.2
 tensorboard>=2.14.0
 
+# --- Real-city traffic-signal RL (multi-agent env on real OSM networks) ---
+sumo-rl>=1.4.5
+
 # --- Traffic Simulation Engine ---
 traci>=1.18.0
 sumolib>=1.18.0
 libsumo>=1.18.0
+pyproj>=3.5.0          # OSM lon/lat <-> net XY for building import
 
 # --- Data & Scientific Computing ---
 numpy>=1.26.0
