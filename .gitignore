@@ -11,6 +11,8 @@
 # Per-worker route files generated at runtime by the traffic generators
 dynamic.rou.xml
 dynamic_worker_*.rou.xml
+# Raw OSM extracts (large, re-fetchable via each scenario's BUILD notes)
+*.osm.xml
 
 # --- Python & Virtual Environments ---
 __pycache__/
