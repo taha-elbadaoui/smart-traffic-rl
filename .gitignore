@@ -27,9 +27,11 @@ dist/
 # --- RL Training & Models ---
 *.zip
 *.pkl
+*.pt
 logs/
 tensorboard_logs/
 results/
+models/
 
 # --- IDEs & OS Junk ---
 .vscode/
