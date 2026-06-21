@@ -81,6 +81,16 @@ benchmarked against fixed-time and max-pressure. Synthetic envs archived in
   (it maximized throughput, not delay). Pressure is the proven objective.
 - **Status:** Active.
 
+### Diagnostic — why the custom IPPO fails (2026-06-20)
+`src/realcity/visualize_policy.py` reports per-junction phase usage. The trained
+custom IPPO **collapses to a near-fixed phase** at 5/8 junctions (e.g. two
+junctions use one phase 100% of the time), so cross directions starve →
+network-wide queue ~**25** halted vehicles vs max-pressure's ~**3** on the same
+slice. Root cause: switching has an immediate cost (yellow time + brief pressure
+spike), so the greedy policy learns "don't switch" and gets stuck; escaping needs
+long-horizon credit assignment the value function doesn't capture. Run
+`python src/realcity/visualize_policy.py --controller ippo --gui` to watch it.
+
 ### ADR-10 — Learned-control convergence is the open problem
 - **Date:** 2026-06-20
 - **Situation:** The custom IPPO/CoLight harnesses are built and structurally

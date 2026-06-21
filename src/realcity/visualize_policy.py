@@ -89,8 +89,11 @@ def main():
         out = os.path.join(ROOT, "results", f"cologne_{args.controller}.png")
         os.makedirs(os.path.dirname(out), exist_ok=True)
         try:
+            import sumolib
+            xmin, ymin, xmax, ymax = sumolib.net.readNet(NET).getBoundary()
+            conn.gui.setBoundary("View #0", xmin, ymin, xmax, ymax)
             conn.gui.screenshot("View #0", out)
-            env.step({ts: 0 for ts in sp.ids})
+            env.step({ts: 0 for ts in sp.ids})  # flush the screenshot
             print(f"screenshot -> {out}")
         except Exception as e:
             print(f"(screenshot needs --gui) {e}")
