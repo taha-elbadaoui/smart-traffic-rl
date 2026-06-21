@@ -48,10 +48,14 @@ Reproduce: `python src/realcity/baselines.py`.
 ## State (update me)
 - ✅ Real Cologne scenario + buildings; sumo-rl 8-agent env validated.
 - ✅ Baselines measured (fixed-time, max-pressure). Max-pressure is strong (−78% wait).
-- ✅ IPPO harness built + smoke-tested (`src/realcity/ippo.py`), not yet fully trained.
-- ⏭️ NEXT: user runs `python src/realcity/ippo.py --iterations 200 --episodes-per-iter 2`,
-  fill the IPPO row, then I build **CoLight** (graph-attention) on the IPPO harness.
-- ⚠️ Beating max-pressure is hard; IPPO may only tie it — coordination (CoLight) is
-  the lever. Set expectations honestly.
+- ✅ IPPO + CoLight harnesses built (`ippo.py`, `colight.py`) + `compare.py` capstone.
+- ⚠️ **Open problem (ADR-10):** learned policies don't converge in short runs — they
+  stick in a gridlock local optimum (greedy eval = constant phase, ~633/2046 trips).
+  Reward scaling (REWARD_SCALE) + entropy helped gradient balance but didn't escape it.
+  Env is responsive (max-pressure clears 2015), so it's an RL-optimization issue.
+- ⏭️ DECISION PENDING: (a) tune custom harness (LR schedule, much longer training,
+  reward shaping/curriculum); (b) use **RESCO's reference agents** (tuned for these
+  Cologne nets — reuse the learner too); (c) ship baselines as the result.
+- Baselines are the validated, defensible result. Don't overstate the learned models.
 
 _Last updated: 2026-06-20._

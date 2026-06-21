@@ -81,6 +81,20 @@ benchmarked against fixed-time and max-pressure. Synthetic envs archived in
   (it maximized throughput, not delay). Pressure is the proven objective.
 - **Status:** Active.
 
+### ADR-10 — Learned-control convergence is the open problem
+- **Date:** 2026-06-20
+- **Situation:** The custom IPPO/CoLight harnesses are built and structurally
+  validated, but in short runs the policies get stuck in a **gridlock local
+  optimum** (greedy eval collapses to a constant phase, ~633/2046 trips). Reward
+  scaling + entropy helped the gradient balance but did not escape it. The env is
+  responsive (max-pressure varies phases and clears 2015 trips), so this is an
+  RL-optimization problem, not a plumbing bug.
+- **Options:** (a) tune the custom harness (LR schedule, longer training, reward
+  shaping, curriculum); (b) use **RESCO's reference agents** (IPPO/MPLight), which
+  are tuned to converge on these exact Cologne nets — the "reuse the learner too"
+  path; (c) ship the baselines as the result for now.
+- **Status:** Open. Baselines stand as the validated result.
+
 ### ADR-09 — Throughput-aware evaluation metric
 - **Date:** 2026-06-20
 - **Decision:** Score controllers with `time_loss + 1000·(1 − completed/expected)`,
@@ -109,8 +123,8 @@ benchmarked against fixed-time and max-pressure. Synthetic envs archived in
 |-----------|--------------:|-------------------:|----------------:|-----------:|-------|
 | fixed-time (real signals) | 29.27 | 49.26 | 114.39 | 1995 | floor |
 | **max-pressure** | **6.46** | **24.69** | **90.28** | **2015** | **−78% wait vs fixed-time — the real bar** |
-| IPPO (shared param) | _todo_ | | | | harness ready — run `python src/realcity/ippo.py` |
-| CoLight | _todo_ | | | | graph-attention (goal) |
+| IPPO (shared param) | ⚠️ | | | | harness built; **not yet converged** (gridlock local optimum) |
+| CoLight | ⚠️ | | | | harness built; **not yet converged** |
 
 *Lower is better for wait / time loss / travel. Reproduce with
 `python src/realcity/baselines.py`. **Key finding:** classic max-pressure already
