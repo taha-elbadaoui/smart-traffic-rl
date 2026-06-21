@@ -123,8 +123,9 @@ benchmarked against fixed-time and max-pressure. Synthetic envs archived in
 |-----------|--------------:|-------------------:|----------------:|-----------:|-------|
 | fixed-time (real signals) | 29.27 | 49.26 | 114.39 | 1995 | floor |
 | **max-pressure** | **6.46** | **24.69** | **90.28** | **2015** | **−78% wait vs fixed-time — the real bar** |
-| IPPO (shared param) | ⚠️ | | | | harness built; **not yet converged** (gridlock local optimum) |
-| CoLight | ⚠️ | | | | harness built; **not yet converged** |
+| IPPO (custom harness) | ⚠️ | | | | our harness; not converged (gridlock local optimum) |
+| CoLight (custom) | ⚠️ | | | | our harness; not converged |
+| **RESCO IPPO** | _training_ | | | | proven agent, runs on Cologne; 40-ep run in progress (see RESCO_SETUP.md) |
 
 *Lower is better for wait / time loss / travel. Reproduce with
 `python src/realcity/baselines.py`. **Key finding:** classic max-pressure already
