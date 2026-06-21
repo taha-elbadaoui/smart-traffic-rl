@@ -18,6 +18,8 @@ BEGIN = 25200          # 07:00 — start of the TAPAS morning peak
 PEAK_SECONDS = 3600    # one hour of demand
 DELTA_TIME = 5         # seconds between agent decisions
 EXPECTED_TRIPS = 2046  # TAPAS trips in the demand; a good controller clears ~all of them
+REWARD_SCALE = 0.01    # scale pressure reward so returns are O(1) (keeps the value
+                       # loss from swamping the policy gradient during PPO updates)
 
 
 def make_env(use_gui=False, num_seconds=PEAK_SECONDS, delta_time=DELTA_TIME,

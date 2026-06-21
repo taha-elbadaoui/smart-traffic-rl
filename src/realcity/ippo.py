@@ -22,7 +22,7 @@ import torch.nn as nn
 
 os.environ.setdefault("LIBSUMO_AS_TRACI", "1")
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from cologne_env import make_env, ROOT, PEAK_SECONDS, EXPECTED_TRIPS  # noqa: E402
+from cologne_env import make_env, ROOT, PEAK_SECONDS, EXPECTED_TRIPS, REWARD_SCALE  # noqa: E402
 from baselines import parse_tripinfo  # noqa: E402
 
 torch.set_num_threads(1)
@@ -82,7 +82,7 @@ def collect(env, policy, sp, n_episodes, gamma=0.99, lam=0.95):
             nobs, rewards, dones, _ = env.step(actions)
             for i, ts in enumerate(sp.ids):
                 traj[ts].append((obs_t[i], mask_t[i], acts[i], logps[i],
-                                 float(vals[i]), float(rewards[ts])))
+                                 float(vals[i]), REWARD_SCALE * float(rewards[ts])))
             obs = nobs
             if dones.get("__all__", False):
                 break
@@ -108,7 +108,7 @@ def collect(env, policy, sp, n_episodes, gamma=0.99, lam=0.95):
             torch.stack(logp_b), torch.tensor(ret_b), adv, float(np.mean(ep_returns)))
 
 
-def ppo_update(policy, optim, batch, epochs=4, clip=0.2, mb=2048, vf=0.5, ent=0.01):
+def ppo_update(policy, optim, batch, epochs=4, clip=0.2, mb=2048, vf=0.5, ent=0.02):
     obs, mask, act, old_logp, ret, adv = batch
     n = obs.shape[0]
     for _ in range(epochs):

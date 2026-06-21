@@ -22,7 +22,7 @@ import torch.nn as nn
 
 os.environ.setdefault("LIBSUMO_AS_TRACI", "1")
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from cologne_env import make_env, ROOT, PEAK_SECONDS, EXPECTED_TRIPS  # noqa: E402
+from cologne_env import make_env, ROOT, PEAK_SECONDS, EXPECTED_TRIPS, REWARD_SCALE  # noqa: E402
 from ippo import Spaces, evaluate  # noqa: E402
 
 torch.set_num_threads(1)
@@ -74,7 +74,7 @@ def collect(env, policy, sp, n_episodes, gamma=0.99, lam=0.95):
                 acts = dist.sample()
                 logps = dist.log_prob(acts)
             nobs, rewards, dones, _ = env.step({ts: int(acts[i]) for i, ts in enumerate(sp.ids)})
-            rew_t = torch.tensor([rewards[ts] for ts in sp.ids], dtype=torch.float32)
+            rew_t = REWARD_SCALE * torch.tensor([rewards[ts] for ts in sp.ids], dtype=torch.float32)
             ep.append((obs_t, mask_t, acts, logps, vals, rew_t))
             obs = nobs
             if dones.get("__all__", False):
@@ -101,7 +101,7 @@ def collect(env, policy, sp, n_episodes, gamma=0.99, lam=0.95):
             torch.stack(LP), torch.stack(RET), adv, float(np.mean(ep_returns)))
 
 
-def ppo_update(policy, optim, batch, epochs=4, clip=0.2, mb=256, vf=0.5, ent=0.01):
+def ppo_update(policy, optim, batch, epochs=4, clip=0.2, mb=256, vf=0.5, ent=0.02):
     obs, mask, act, old_logp, ret, adv = batch          # [T,N,*]
     T = obs.shape[0]
     for _ in range(epochs):
