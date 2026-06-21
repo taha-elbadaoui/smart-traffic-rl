@@ -48,14 +48,17 @@ Reproduce: `python src/realcity/baselines.py`.
 ## State (update me)
 - ✅ Real Cologne scenario + buildings; sumo-rl 8-agent env validated.
 - ✅ Baselines measured (fixed-time, max-pressure). Max-pressure is strong (−78% wait).
-- ✅ IPPO + CoLight harnesses built (`ippo.py`, `colight.py`) + `compare.py` capstone.
-- ⚠️ **Open problem (ADR-10):** learned policies don't converge in short runs — they
-  stick in a gridlock local optimum (greedy eval = constant phase, ~633/2046 trips).
-  Reward scaling (REWARD_SCALE) + entropy helped gradient balance but didn't escape it.
-  Env is responsive (max-pressure clears 2015), so it's an RL-optimization issue.
-- ⏭️ DECISION PENDING: (a) tune custom harness (LR schedule, much longer training,
-  reward shaping/curriculum); (b) use **RESCO's reference agents** (tuned for these
-  Cologne nets — reuse the learner too); (c) ship baselines as the result.
-- Baselines are the validated, defensible result. Don't overstate the learned models.
+- ✅ Custom IPPO + CoLight harnesses built; **don't converge** (phase-collapse gridlock,
+  diagnosed via `visualize_policy.py` — see PROJECT_LOG diagnostic + ADR-10).
+- ✅ Switched to **RESCO's reference agents** (user's choice). Works now after fighting
+  Python 3.10 venv + DLL/pfrl issues — see `src/realcity/RESCO_SETUP.md`. RESCO **IPPO**
+  runs on Cologne (`libsumo:False`); MPLight/IDQN crash on pfrl 0.4.
+- 🟢 RESCO IPPO 40-episode run was training (run id btc8e0lzx). Reward noisy/not clearly
+  improving at 40 ep — RESCO's real results need 100s–1000s of episodes.
+- ⏭️ NEXT: when RESCO IPPO training is done, extract its delay/wait via a clean eval
+  (`load:True ... delete_episode_logs:False`, parse the tripinfo), add the row to the
+  PROJECT_LOG table, compare vs fixed-time/max-pressure. Consider a longer RESCO run
+  (more episodes) for a competitive number.
+- Baselines remain the validated, defensible result. Don't overstate the learned models.
 
-_Last updated: 2026-06-20._
+_Last updated: 2026-06-21._
