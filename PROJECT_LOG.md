@@ -91,6 +91,17 @@ spike), so the greedy policy learns "don't switch" and gets stuck; escaping need
 long-horizon credit assignment the value function doesn't capture. Run
 `python src/realcity/visualize_policy.py --controller ippo --gui` to watch it.
 
+### Result — RESCO IPPO diverged (2026-06-22)
+A full **200-episode** RESCO IPPO run on cologne8 (~3.5 h) **failed to learn**: the
+best episode was #3 and the pressure-reward steadily worsened (−164M → ~−240M) over
+training. So *both* the custom harness (gridlock) and a "proven" agent (divergence)
+failed to converge here. Likely causes: untuned hyperparameters for this scenario
+and/or RESCO's legacy stack (pfrl 0.4) interacting badly with modern torch. Beating
+max-pressure with a learned policy is genuinely hard and remains unachieved.
+**Conclusion: the validated, defensible result is the baseline comparison
+(max-pressure −78% vs fixed-time on real Cologne).** Learned control is honest
+"explored, did not converge" future work.
+
 ### ADR-10 — Learned-control convergence is the open problem
 - **Date:** 2026-06-20
 - **Situation:** The custom IPPO/CoLight harnesses are built and structurally
@@ -135,7 +146,7 @@ long-horizon credit assignment the value function doesn't capture. Run
 | **max-pressure** | **6.46** | **24.69** | **90.28** | **2015** | **−78% wait vs fixed-time — the real bar** |
 | IPPO (custom harness) | ⚠️ | | | | our harness; not converged (gridlock local optimum) |
 | CoLight (custom) | ⚠️ | | | | our harness; not converged |
-| **RESCO IPPO** | _training_ | | | | proven agent, runs on Cologne; 40-ep run in progress (see RESCO_SETUP.md) |
+| RESCO IPPO (200 ep) | ❌ diverged | | | | best = episode 3; reward worsened over 200 ep — did not learn |
 
 *Lower is better for wait / time loss / travel. Reproduce with
 `python src/realcity/baselines.py`. **Key finding:** classic max-pressure already
