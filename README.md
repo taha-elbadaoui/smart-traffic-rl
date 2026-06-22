@@ -126,4 +126,4 @@ PROJECT_LOG.md    Architectural decisions (ADRs) + the measured results table
 
 ## Authors & license
 
-Developed by **Taha El Badaoui** and **Walid Hazzam** — engineering students in **Advanced Software Engineering for Digital Services (ASEDS)** at **INPT Rabat, Morocco** — for academic and research purposes.
+Developed by **Taha El Badaoui** — engineering student in **Advanced Software Engineering for Digital Services (ASEDS)** at **INPT Rabat, Morocco** — for academic and research purposes.
