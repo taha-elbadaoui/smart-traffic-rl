@@ -10,6 +10,11 @@
 [![OpenStreetMap](https://img.shields.io/badge/OpenStreetMap-netconvert%20%7C%20polyconvert-7EBC6F?logo=openstreetmap&logoColor=white)](https://www.openstreetmap.org/)
 [![License: Academic](https://img.shields.io/badge/License-Academic-lightgrey)](#-authors--license)
 
+<p align="center">
+  <img src="docs/maxpressure_demo.gif" width="82%" alt="Max-pressure adaptive control running on the real Cologne network" />
+  <br><em>Adaptive (max-pressure) control on the real Cologne network, in simulation — traffic flowing through a signalized intersection.</em>
+</p>
+
 ---
 
 ## Overview
