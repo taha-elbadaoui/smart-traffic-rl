@@ -39,3 +39,6 @@ models/
 .DS_Store
 Thumbs.db
 .venv-resco/
+
+# Internal AI working-notes (kept local only)
+CLAUDE.md
